@@ -1,893 +1,816 @@
-# 第7章：コルーチン入門 - 非同期処理の新しいアプローチ
+# コルーチン入門：非同期処理の新しいアプローチ
 
-## 7.1 コルーチンの基礎
+## 導入：非同期処理の課題とコルーチンの誕生
 
-### ThreadとCoroutineの違い
+### なぜ非同期処理は難しいのか
 
-コルーチンは、軽量スレッドとも呼ばれ、従来のスレッドと比較して以下の特徴があります。
+アプリケーションでは「同時に複数の処理を行いたい」場面がよくあります。
+たとえば、
 
-```kotlin
-// スレッドを使った並行処理
-fun withThreads() {
-    repeat(100_000) {
-        thread {
-            Thread.sleep(1000)
-            print(".")
-        }
-    }
-    // メモリ不足になる可能性が高い
-}
+* 画面を表示しながらネットワーク通信をする
+* 複数のAPIを同時に呼び出して、すべての結果をまとめる
+* 大きなファイルを読み込みながら、ユーザー入力を受け付ける
 
-// コルーチンを使った並行処理
-import kotlinx.coroutines.*
+このような「並行処理」を実現するために、Javaでは長い間 **Thread（スレッド）** が使われてきました。
 
-fun withCoroutines() = runBlocking {
-    repeat(100_000) {
-        launch {
-            delay(1000)
-            print(".")
-        }
-    }
-    // メモリ効率が良く、問題なく実行できる
-}
-```
+---
 
-**主な違い：**
+### Javaの典型的な非同期処理の形
 
-| 特徴 | Thread | Coroutine |
-|------|--------|-----------|
-| コスト | 重い（1MB程度） | 軽い（数KB） |
-| 作成数 | 制限あり（数千） | 実質無制限（数十万） |
-| コンテキストスイッチ | OSレベル（遅い） | ユーザーレベル（速い） |
-| 制御 | 複雑 | 構造化された並行性 |
+Javaでは以下のような方法が使われます。
 
-**Javaとの比較：**
+* `new Thread { ... }`
+  → 手動でスレッドを起動
+* `ExecutorService.submit()`
+  → スレッドプールを使ってタスクを実行
+* `CompletableFuture`
+  → 非同期処理をチェーンでつなぐ
+
+例：`CompletableFuture`
 
 ```java
-// Java - Thread
+CompletableFuture.supplyAsync(() -> fetchData())
+    .thenApply(data -> process(data))
+    .thenAccept(result -> System.out.println(result));
+```
+
+* 例外処理が複雑
+* スレッドプールの設定が難しい
+* ネストが増えると読みにくい
+  という課題が残ります。
+
+
+### Threadによる並行処理の限界
+
+ThreadはOSが直接管理する仕組みです。
+そのため、1つ作るだけでもかなりのメモリ（数百KB〜数MB）を消費し、数千個も立ち上げるのは非現実的です。
+
+また、スレッドを自分で管理するコードは複雑になりがちです。
+
+```java
 new Thread(() -> {
     try {
-        Thread.sleep(1000);
-        System.out.println("Done");
-    } catch (InterruptedException e) {
+        var result = fetchData();
+        System.out.println(result);
+    } catch (Exception e) {
         e.printStackTrace();
     }
 }).start();
-
-// Java - CompletableFuture
-CompletableFuture.supplyAsync(() -> {
-    try {
-        Thread.sleep(1000);
-    } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-    }
-    return "Done";
-}).thenAccept(System.out::println);
-
-// Java - Virtual Threads (Java 21+)
-Thread.startVirtualThread(() -> {
-    try {
-        Thread.sleep(1000);
-        System.out.println("Done");
-    } catch (InterruptedException e) {
-        e.printStackTrace();
-    }
-});
 ```
 
-### Suspend関数
+スレッドの中で例外処理や完了後のコールバックを自分で書く必要があります。
+これが増えていくと「**コールバック地獄（callback hell）**」が発生します。
 
-`suspend`修飾子を付けた関数は、コルーチン内で実行を一時停止できます。
+-----
 
-```kotlin
-// suspend関数の定義
-suspend fun fetchUserData(userId: Long): User {
-    delay(1000)  // コルーチンを1秒間一時停止
-    return User(userId, "User $userId")
-}
+## 💥 コールバック地獄の具体例
 
-suspend fun fetchUserPosts(userId: Long): List<Post> {
-    delay(500)
-    return listOf(Post(1, "Post 1"), Post(2, "Post 2"))
-}
+スレッドの中で例外処理や完了後のコールバックを自分で書く必要があります。これが**増えていくと**、処理がどんどん入れ子になり、\*\*「コールバック地獄（callback hell）」\*\*が発生します。
 
-// suspend関数は他のsuspend関数またはコルーチン内でのみ呼び出せる
-suspend fun getUserProfile(userId: Long): UserProfile {
-    val user = fetchUserData(userId)  // OK
-    val posts = fetchUserPosts(userId)  // OK
-    return UserProfile(user, posts)
-}
-
-// 通常の関数からは呼び出せない
-fun normalFunction() {
-    // fetchUserData(1)  // コンパイルエラー！
-}
-
-// コルーチンビルダーを使って呼び出す
-fun callSuspendFunction() = runBlocking {
-    val user = fetchUserData(1)  // OK
-    println(user)
-}
-
-// より実践的な例
-suspend fun loginUser(email: String, password: String): Result<User> {
-    return try {
-        // ネットワークリクエストをシミュレート
-        delay(1000)
-
-        // 認証処理
-        val token = authenticateUser(email, password)
-        val user = fetchUserByToken(token)
-
-        Result.success(user)
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
-}
-
-suspend fun authenticateUser(email: String, password: String): String {
-    delay(500)
-    return "auth-token-123"
-}
-
-suspend fun fetchUserByToken(token: String): User {
-    delay(500)
-    return User(1, "Authenticated User")
-}
-```
-
-### CoroutineScopeとCoroutineContext
-
-コルーチンスコープは、コルーチンのライフサイクルを管理します。
-
-```kotlin
-import kotlinx.coroutines.*
-
-// runBlocking - メインスレッドをブロック（主にテストで使用）
-fun main() = runBlocking {
-    println("Start")
-    delay(1000)
-    println("End")
-}
-
-// GlobalScope - アプリケーション全体のスコープ（通常は避けるべき）
-fun badExample() {
-    GlobalScope.launch {
-        delay(1000)
-        println("This might not execute if app exits early")
-    }
-    // アプリが終了すると、コルーチンも終了してしまう
-}
-
-// カスタムスコープの作成
-class MyRepository {
-    private val scope = CoroutineScope(Dispatchers.IO)
-
-    fun fetchData() {
-        scope.launch {
-            val data = performNetworkRequest()
-            processData(data)
-        }
-    }
-
-    fun cleanup() {
-        scope.cancel()  // すべてのコルーチンをキャンセル
-    }
-
-    private suspend fun performNetworkRequest(): String {
-        delay(1000)
-        return "Data"
-    }
-
-    private fun processData(data: String) {
-        println("Processing: $data")
-    }
-}
-
-// CoroutineContext - コルーチンの実行コンテキスト
-fun contextExample() = runBlocking {
-    println("Main: ${Thread.currentThread().name}")
-
-    // コンテキストの要素
-    launch(Dispatchers.Default) {
-        println("Default: ${Thread.currentThread().name}")
-    }
-
-    launch(Dispatchers.IO) {
-        println("IO: ${Thread.currentThread().name}")
-    }
-
-    launch(Dispatchers.Main) {
-        // Android/JavaFXのメインスレッド
-        println("Main: ${Thread.currentThread().name}")
-    }
-
-    launch(Dispatchers.Unconfined) {
-        println("Unconfined: ${Thread.currentThread().name}")
-    }
-}
-
-// 構造化された並行性
-fun structuredConcurrency() = runBlocking {
-    println("Start")
-
-    launch {
-        delay(1000)
-        println("Task 1")
-    }
-
-    launch {
-        delay(500)
-        println("Task 2")
-    }
-
-    println("End")  // すべての子コルーチンが完了するまで待つ
-}
-
-// 出力:
-// Start
-// End
-// Task 2 (500ms後)
-// Task 1 (1000ms後)
-```
-
-### コルーチンビルダー
-
-```kotlin
-import kotlinx.coroutines.*
-
-// launch - 結果を返さないコルーチンを起動
-fun launchExample() = runBlocking {
-    val job = launch {
-        delay(1000)
-        println("Launch completed")
-    }
-
-    println("Launch started")
-    job.join()  // コルーチンの完了を待つ
-    println("Launch finished")
-}
-
-// async - 結果を返すコルーチンを起動
-fun asyncExample() = runBlocking {
-    val deferred = async {
-        delay(1000)
-        "Result"
-    }
-
-    println("Async started")
-    val result = deferred.await()  // 結果を待つ
-    println("Result: $result")
-}
-
-// 複数の非同期処理を並列実行
-suspend fun fetchMultipleData() = coroutineScope {
-    val user = async { fetchUserData(1) }
-    val posts = async { fetchUserPosts(1) }
-    val comments = async { fetchUserComments(1) }
-
-    // すべての結果を待つ
-    UserDashboard(
-        user = user.await(),
-        posts = posts.await(),
-        comments = comments.await()
-    )
-}
-
-// withContext - コンテキストを切り替えて実行
-suspend fun loadData(): String = withContext(Dispatchers.IO) {
-    // IOスレッドで実行
-    performNetworkRequest()
-}
-
-// coroutineScope - 構造化されたスコープを作成
-suspend fun processData() = coroutineScope {
-    launch {
-        delay(500)
-        println("Task 1")
-    }
-
-    launch {
-        delay(300)
-        println("Task 2")
-    }
-
-    // すべての子が完了するまで待つ
-}
-
-// supervisorScope - 子の失敗を隔離
-suspend fun robustProcessing() = supervisorScope {
-    val job1 = launch {
-        delay(100)
-        throw Exception("Job 1 failed")
-    }
-
-    val job2 = launch {
-        delay(200)
-        println("Job 2 succeeded")
-    }
-
-    // job1が失敗してもjob2は継続
-}
-```
-
-## 7.2 実践的な非同期処理
-
-### async/await
-
-```kotlin
-import kotlinx.coroutines.*
-import kotlin.system.measureTimeMillis
-
-// 逐次実行（遅い）
-suspend fun sequentialExecution() {
-    val time = measureTimeMillis {
-        val user = fetchUserData(1)  // 1秒
-        val posts = fetchUserPosts(1)  // 0.5秒
-        println("User: $user, Posts: $posts")
-    }
-    println("Sequential time: $time ms")  // 約1500ms
-}
-
-// 並列実行（速い）
-suspend fun parallelExecution() = coroutineScope {
-    val time = measureTimeMillis {
-        val userDeferred = async { fetchUserData(1) }  // 1秒
-        val postsDeferred = async { fetchUserPosts(1) }  // 0.5秒
-
-        val user = userDeferred.await()
-        val posts = postsDeferred.await()
-        println("User: $user, Posts: $posts")
-    }
-    println("Parallel time: $time ms")  // 約1000ms
-}
-
-// 実践的な例：複数APIの並列呼び出し
-data class Dashboard(
-    val user: User,
-    val posts: List<Post>,
-    val notifications: List<Notification>,
-    val stats: Statistics
-)
-
-suspend fun loadDashboard(userId: Long): Dashboard = coroutineScope {
-    // すべてのAPIを並列で呼び出す
-    val userDeferred = async { fetchUserData(userId) }
-    val postsDeferred = async { fetchUserPosts(userId) }
-    val notificationsDeferred = async { fetchNotifications(userId) }
-    val statsDeferred = async { fetchStatistics(userId) }
-
-    // すべての結果を待つ
-    Dashboard(
-        user = userDeferred.await(),
-        posts = postsDeferred.await(),
-        notifications = notificationsDeferred.await(),
-        stats = statsDeferred.await()
-    )
-}
-
-// エラーハンドリング付き
-suspend fun loadDashboardSafe(userId: Long): Result<Dashboard> = runCatching {
-    coroutineScope {
-        val userDeferred = async { fetchUserData(userId) }
-        val postsDeferred = async { fetchUserPosts(userId) }
-        val notificationsDeferred = async { fetchNotifications(userId) }
-        val statsDeferred = async { fetchStatistics(userId) }
-
-        Dashboard(
-            user = userDeferred.await(),
-            posts = postsDeferred.await(),
-            notifications = notificationsDeferred.await(),
-            stats = statsDeferred.await()
-        )
-    }
-}
-
-// 一部の失敗を許容する
-suspend fun loadDashboardResilient(userId: Long): Dashboard = coroutineScope {
-    val userDeferred = async { fetchUserData(userId) }
-    val postsDeferred = async {
-        try {
-            fetchUserPosts(userId)
-        } catch (e: Exception) {
-            emptyList()  // 失敗時は空リスト
-        }
-    }
-    val notificationsDeferred = async {
-        try {
-            fetchNotifications(userId)
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
-    Dashboard(
-        user = userDeferred.await(),
-        posts = postsDeferred.await(),
-        notifications = notificationsDeferred.await(),
-        stats = Statistics.default()
-    )
-}
-```
-
-**Javaとの比較：**
+この例では、「データ取得」→「データ加工」→「結果保存」という3つの非同期処理が連続しています。
 
 ```java
-// Java - CompletableFuture
-CompletableFuture<User> userFuture =
-    CompletableFuture.supplyAsync(() -> fetchUserData(1));
-CompletableFuture<List<Post>> postsFuture =
-    CompletableFuture.supplyAsync(() -> fetchUserPosts(1));
+// 非同期処理の完了後に「次に実行する処理」を定義するためのインターフェース
+interface Callback {
+    void onComplete(String result); // 成功した時に呼ばれる
+    void onError(Exception e);     // 失敗した時に呼ばれる
+}
 
-CompletableFuture<Dashboard> dashboardFuture = userFuture
-    .thenCombine(postsFuture, (user, posts) ->
-        new Dashboard(user, posts)
-    );
+// ----------------------------------------------------------------------
 
-Dashboard dashboard = dashboardFuture.join();
+// 処理1: データを非同期で取得する処理を定義
+AsyncOperation fetchData = (callback) -> {
+    new Thread(() -> {
+        try {
+            // ... データを取得する処理（時間がかかる作業） ...
+            Thread.sleep(100); 
+            String rawData = "Original Data: [1, 2, 3]";
+            System.out.println("Step 1: データを取得しました -> " + rawData);
+            
+            // 成功！次の処理（コールバック）を呼び出す
+            callback.onComplete(rawData); 
+        } catch (Exception e) {
+            callback.onError(e);
+        }
+    }).start();
+};
+
+// ----------------------------------------------------------------------
+
+// メインの処理実行
+System.out.println("非同期処理を開始します...");
+
+// ここからコールバック地獄の始まり...
+fetchData.execute(new Callback() { // <<< 最初の非同期処理の開始
+    @Override
+    public void onComplete(String rawData) {
+        
+        // --- Step 2: 取得したデータを非同期で加工する ---
+        System.out.println("Step 1完了。Step 2（加工処理）を開始...");
+        
+        new Thread(() -> {
+            try {
+                // ... データを加工する処理（時間がかかる作業） ...
+                Thread.sleep(100); 
+                String processedData = rawData.replace("[", "<").replace("]", ">");
+                System.out.println("Step 2: データを加工しました -> " + processedData);
+                
+                // 成功！次の処理（コールバック）を呼び出すために、さらにコールバックを定義
+                new Callback() { // <<< コールバックの中に、さらに次の処理（コールバック）を記述
+                    @Override
+                    public void onComplete(String dataToSave) {
+                        
+                        // --- Step 3: 加工したデータを非同期で保存する ---
+                        System.out.println("Step 2完了。Step 3（保存処理）を開始...");
+                        
+                        new Thread(() -> {
+                            try {
+                                // ... データを保存する処理（時間がかかる作業） ...
+                                Thread.sleep(100);
+                                String finalResult = "Saved: " + dataToSave;
+                                System.out.println("Step 3: データを保存しました -> " + finalResult);
+                                System.out.println("全ての非同期処理が完了しました。");
+                            } catch (Exception e) {
+                                System.err.println("Step 3でエラーが発生しました: " + e.getMessage());
+                            }
+                        }).start();
+                    }
+                    
+                    @Override
+                    public void onError(Exception e) {
+                        // Step 3のエラー処理
+                    }
+                }.onComplete(processedData); // Step 3のコールバック呼び出し
+                
+            } catch (Exception e) {
+                System.err.println("Step 2でエラーが発生しました: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    @Override
+    public void onError(Exception e) {
+        System.err.println("Step 1でエラーが発生しました: " + e.getMessage());
+    }
+});
 ```
 
-### Flow API
+-----
 
-Flowは、複数の値を非同期に発行するストリームです。
+## 🤔 なぜ「地獄」なのか？
+
+上記のコードのように、非同期処理が連続するたびにコードが\*\*内側へ、内側へと深く入れ子（ネスト）\*\*になっていきます。
+
+  * コードの\*\*インデント（字下げ）\*\*がどんどん深くなり、処理の全体像が見えにくい。
+  * どの処理がどの処理の**完了後**に実行されているのか、**処理の流れを追うのが非常に困難**になる。
+  * 処理の追加や変更が難しくなり、**バグの原因**になりやすい。
+
+これが「コールバック地獄」と呼ばれるゆえんです。
+
+---
+
+
+
+### Kotlinの哲学：「軽量な並行処理を安全に、シンプルに」
+
+Kotlinは「並行処理をもっと直感的に、安全に書けるようにしたい」という思想で、
+**コルーチン（Coroutine）** を導入しました。
+
+コルーチンは「スレッドの上で動く軽量なタスク」です。
+
+* Threadより軽く、数万個でも動かせる
+* `suspend` 関数によって中断と再開が可能
+* スコープを使ってライフサイクルを安全に管理できる
+
+---
+
+### コルーチンとは？
+
+コルーチンとは？
+
+一言で言えば、
+
+「軽量なスレッド＋構造化された非同期タスクの仕組み」
+
+これを料理にたとえると、次のようになります。
+
+Thread の場合（従来のやり方）
+
+Threadは「一人のシェフが一皿ずつ最初から最後まで担当する」ようなものです。
+カレーを作っている間は、そのシェフは他の仕事ができません。
+オーブンで焼いている時間も、ただ突っ立って見ているしかない。
+
+新しい料理を同時に作りたければ、もう一人シェフを雇う必要があります。
+しかし人件費（＝リソース）も場所（＝メモリ）もどんどん増えます。
+
+Coroutine の場合（Kotlin的アプローチ）
+
+Coroutineは「少人数のキッチンスタッフが、必要なときだけ動いて手際よく料理を進める」ような仕組みです。
+
+たとえば：
+
+Aさんがスープを煮込んでいるあいだ（待ち時間）、
+→ Bさんがサラダを盛りつける。
+
+スープが煮えたらAさんがまた戻って仕上げをする。
+
+ここでのポイントは、
+「待っている時間を無駄にせず、他の作業に切り替えられる」 こと。
+Kotlinのコルーチンはこの「切り替え」を自動で最適にやってくれます。
+
+構造化並行性（チームプレーのルール）
+
+さらにコルーチンでは、全員が「チーム単位」で動きます。
+
+親シェフ（＝スコープ）がキッチンを閉めたら、
+→ その下で動いているスタッフ（＝子コルーチン）も全員作業を止めて片付ける。
+
+Threadだと「誰かが勝手に残業している」ような状態になりがちですが、
+Coroutineではチーム全体が同じルールで動くため、後片付けやエラー処理が自動的に整理されるのです。
+
+
+# コルーチンの基礎
+
+## (1) Thread vs Coroutine
+
+### Thread の特徴
+
+* OS が直接管理する
+* 生成・切り替えコストが高い
+* 同時に大量のスレッドを動かすとメモリ負荷が大きい
+
+```java
+new Thread(() -> {
+    Thread.sleep(1000);
+    System.out.println("完了");
+}).start();
+```
+
+このようなコードは少数なら問題ありませんが、数千単位で並行実行するとシステムが重くなります。
+
+---
+
+### Coroutine の特徴
+
+* Kotlin ランタイムが管理（ユーザー空間で動作）
+* 非常に軽量（数万単位で動かしてもOK）
+* 同じスレッド上で複数の処理を切り替えて実行
 
 ```kotlin
-import kotlinx.coroutines.flow.*
-
-// Flowの基本
-fun simpleFlow(): Flow<Int> = flow {
-    for (i in 1..3) {
-        delay(100)
-        emit(i)  // 値を発行
-    }
-}
-
-// Flowの収集
-fun collectFlow() = runBlocking {
-    simpleFlow().collect { value ->
-        println(value)
-    }
-}
-
-// Flowビルダー
-fun flowBuilders() = runBlocking {
-    // flowOf - 固定値のFlow
-    flowOf(1, 2, 3, 4, 5)
-        .collect { println(it) }
-
-    // asFlow - コレクションからFlow
-    listOf(1, 2, 3, 4, 5)
-        .asFlow()
-        .collect { println(it) }
-
-    // channelFlow - チャンネルベースのFlow
-    channelFlow {
-        for (i in 1..3) {
-            send(i)
-        }
-    }.collect { println(it) }
-}
-
-// Flowの変換
-fun flowTransformations() = runBlocking {
-    // map
-    flowOf(1, 2, 3)
-        .map { it * 2 }
-        .collect { println(it) }  // 2, 4, 6
-
-    // filter
-    flowOf(1, 2, 3, 4, 5)
-        .filter { it % 2 == 0 }
-        .collect { println(it) }  // 2, 4
-
-    // transform - 複雑な変換
-    flowOf(1, 2, 3)
-        .transform { value ->
-            emit("Emitting $value")
-            emit(value * 2)
-        }
-        .collect { println(it) }
-}
-
-// 実践的な例：リアルタイムデータストリーム
-fun userActivityStream(userId: Long): Flow<UserActivity> = flow {
-    while (true) {
-        delay(1000)  // 1秒ごと
-        val activity = fetchLatestActivity(userId)
-        emit(activity)
-    }
-}
-
-// Flowの合成
-suspend fun monitorUser(userId: Long) {
-    userActivityStream(userId)
-        .filter { it.isImportant }
-        .map { it.message }
-        .collect { message ->
-            println("Important: $message")
-        }
-}
-
-// 複数のFlowの結合
-fun combinedStream(): Flow<String> = flow {
-    val flow1 = flowOf("A", "B", "C")
-    val flow2 = flowOf(1, 2, 3)
-
-    flow1.zip(flow2) { letter, number ->
-        "$letter$number"
-    }.collect { emit(it) }
-}
-
-// エラーハンドリング
-fun flowWithErrorHandling() = runBlocking {
-    flow {
-        emit(1)
-        emit(2)
-        throw RuntimeException("Error!")
-        emit(3)
-    }.catch { e ->
-        println("Caught: ${e.message}")
-        emit(-1)  // エラー時のデフォルト値
-    }.collect { println(it) }
-}
-
-// バックプレッシャー処理
-fun flowWithBackpressure() = runBlocking {
-    flow {
-        repeat(10) {
-            emit(it)
-            println("Emitted $it")
-        }
-    }
-    .buffer()  // バッファリング
-    .collect { value ->
-        delay(100)  // 遅い処理
-        println("Collected $value")
-    }
-}
-
-// StateFlow - 状態を持つFlow
-class ViewModel {
-    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
-    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
-
-    fun loadData() {
-        viewModelScope.launch {
-            try {
-                val data = fetchData()
-                _uiState.value = UiState.Success(data)
-            } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: "Unknown error")
-            }
-        }
-    }
-}
-
-sealed class UiState {
-    object Loading : UiState()
-    data class Success(val data: String) : UiState()
-    data class Error(val message: String) : UiState()
-}
-
-// SharedFlow - 複数のコレクターで共有
-class EventBus {
-    private val _events = MutableSharedFlow<Event>()
-    val events: SharedFlow<Event> = _events.asSharedFlow()
-
-    suspend fun postEvent(event: Event) {
-        _events.emit(event)
-    }
+GlobalScope.launch {
+    delay(1000)
+    println("完了")
 }
 ```
 
-### 例外処理とキャンセレーション
+`delay` の間に他の処理が動くため、スレッドを占有しません。
+
+---
+
+## (2) `suspend` 関数
+
+### 基本の考え方
+
+`suspend` は「一時停止できる関数」という意味です。
+コルーチンの中で呼び出すと、処理を中断して別の作業に切り替えることができます。
+
+```kotlin
+suspend fun fetchData(): String {
+    delay(1000)
+    return "OK"
+}
+```
+
+`delay(1000)` は `Thread.sleep(1000)` のようにスレッドを止めるわけではなく、
+「この処理は1秒後に再開するから、その間は他の処理を進めてね」とKotlinに伝えます。
+
+---
+
+### イメージで捉える
+
+`Thread.sleep()` は「部屋を借りて寝る」。
+→ 他の人はその部屋（スレッド）を使えない。
+
+`delay()` は「一度部屋を出て、1秒後に戻る」。
+→ 他の人がその間に同じ部屋を使える。
+
+これが「スレッドを止めずに処理を待つ」というコルーチンの強みです。
+
+---
+
+## (3) CoroutineScope と CoroutineContext
+
+### CoroutineScope（スコープ）
+
+スコープはコルーチンの「生存範囲」を決めるものです。
+スコープが終わると、その中で動いているコルーチンも自動的にキャンセルされます。
+これにより、メモリリークや孤立タスクを防げます。
+
+```kotlin
+coroutineScope {
+    launch { println("A") }
+    launch { println("B") }
+} // ここを抜けると両方完了
+```
+
+---
+
+### CoroutineContext（コンテキスト）
+
+コンテキストはコルーチンの実行環境をまとめたものです。
+中には以下のような情報が入っています。
+
+* **Dispatcher**：どのスレッドで動くか（例：IO, Default, Main）
+* **Job**：状態（実行中・キャンセル・完了）
+
+例：
+
+```kotlin
+GlobalScope.launch(Dispatchers.IO) {
+    println("実行スレッド: ${Thread.currentThread().name}")
+}
+```
+
+上記では `Dispatchers.IO` によって、I/O 処理向けのスレッドプール上で実行されます。
+
+---
+
+### まとめ
+
+* **Thread** は OS が管理する重い単位
+* **Coroutine** は Kotlin が管理する軽い単位
+* **suspend 関数** で処理を一時停止・再開できる
+* **CoroutineScope/Context** により、安全で構造化された並行処理が実現できる
+
+## 実践的な非同期処理
+
+---
+
+### (1) `launch` vs `async/await`
+
+Kotlinのコルーチンでは、非同期処理を開始する方法がいくつかあります。
+その代表が **`launch`** と **`async`** です。
+どちらもコルーチンを起動しますが、「戻り値の有無」が大きな違いです。
+
+---
+
+#### `launch`：結果を返さない（fire-and-forget）
+
+`launch` は「とにかく実行して終わり」という使い方をします。
+結果を待たず、裏で非同期に動かします。
 
 ```kotlin
 import kotlinx.coroutines.*
 
-// 例外処理
-fun exceptionHandling() = runBlocking {
-    // try-catch
-    try {
-        coroutineScope {
-            launch {
-                delay(100)
-                throw Exception("Failed!")
-            }
-        }
-    } catch (e: Exception) {
-        println("Caught: ${e.message}")
-    }
-
-    // CoroutineExceptionHandler
-    val handler = CoroutineExceptionHandler { _, exception ->
-        println("Caught: ${exception.message}")
-    }
-
-    val scope = CoroutineScope(Dispatchers.Default + handler)
-    scope.launch {
-        throw Exception("Failed!")
-    }
-
-    delay(100)
-}
-
-// キャンセレーション
-fun cancellationExample() = runBlocking {
-    val job = launch {
-        repeat(1000) { i ->
-            println("Job: $i")
-            delay(500)
-        }
-    }
-
-    delay(1300)  // 少し待つ
-    println("Cancelling job...")
-    job.cancel()  // キャンセル
-    job.join()  // 完了を待つ
-    println("Job cancelled")
-}
-
-// キャンセル可能なコード
-suspend fun cancellableWork() {
-    repeat(1000) { i ->
-        // isActiveでキャンセルをチェック
-        if (!isActive) {
-            println("Work cancelled")
-            return
-        }
-
-        // または ensureActive()
-        ensureActive()
-
-        println("Working: $i")
-        delay(100)
-    }
-}
-
-// リソースのクリーンアップ
-fun resourceCleanup() = runBlocking {
-    val job = launch {
-        try {
-            repeat(1000) { i ->
-                println("Working: $i")
-                delay(100)
-            }
-        } finally {
-            // キャンセル時のクリーンアップ
-            println("Cleaning up...")
-            withContext(NonCancellable) {
-                // キャンセル不可能なクリーンアップ処理
-                delay(100)
-                println("Cleanup done")
-            }
-        }
-    }
-
-    delay(300)
-    job.cancelAndJoin()
-}
-
-// タイムアウト
-fun timeoutExample() = runBlocking {
-    try {
-        withTimeout(1000) {
-            repeat(1000) { i ->
-                println("Working: $i")
-                delay(500)
-            }
-        }
-    } catch (e: TimeoutCancellationException) {
-        println("Timed out!")
-    }
-
-    // nullを返すバージョン
-    val result = withTimeoutOrNull(1000) {
-        delay(1500)
-        "Result"
-    }
-    println(result)  // null
-}
-
-// 実践的な例：リトライロジック
-suspend fun <T> retryWithBackoff(
-    times: Int = 3,
-    initialDelay: Long = 100,
-    maxDelay: Long = 1000,
-    factor: Double = 2.0,
-    block: suspend () -> T
-): T {
-    var currentDelay = initialDelay
-    repeat(times - 1) {
-        try {
-            return block()
-        } catch (e: Exception) {
-            println("Failed attempt ${it + 1}, retrying in ${currentDelay}ms")
-            delay(currentDelay)
-            currentDelay = (currentDelay * factor).toLong().coerceAtMost(maxDelay)
-        }
-    }
-    return block()  // 最後の試行
-}
-
-// 使用例
-suspend fun fetchDataWithRetry(): String {
-    return retryWithBackoff(times = 3) {
-        fetchData()
-    }
-}
-```
-
-## 7.3 Javaの並行処理との比較
-
-### CompletableFutureとの違い
-
-```kotlin
-// Java CompletableFuture
-CompletableFuture<User> userFuture = CompletableFuture
-    .supplyAsync(() -> fetchUser(1))
-    .thenApply(user -> user.toUpperCase())
-    .exceptionally(ex -> {
-        ex.printStackTrace();
-        return null;
-    });
-
-// Kotlin Coroutines
-suspend fun fetchUserAsync(id: Long): User {
-    return try {
-        val user = fetchUser(id)
-        user.copy(name = user.name.uppercase())
-    } catch (e: Exception) {
-        e.printStackTrace()
-        User.default()
-    }
-}
-
-// 複数の非同期処理の組み合わせ
-// Java
-CompletableFuture<String> combined = CompletableFuture
-    .supplyAsync(() -> fetchUser(1))
-    .thenCombine(
-        CompletableFuture.supplyAsync(() -> fetchPosts(1)),
-        (user, posts) -> user.getName() + ": " + posts.size()
-    );
-
-// Kotlin
-suspend fun getCombinedData(userId: Long): String = coroutineScope {
-    val user = async { fetchUser(userId) }
-    val posts = async { fetchPosts(userId) }
-    "${user.await().name}: ${posts.await().size}"
-}
-```
-
-### スレッドプールとディスパッチャー
-
-```kotlin
-// Javaのスレッドプール
-ExecutorService executor = Executors.newFixedThreadPool(4);
-executor.submit(() -> {
-    // 処理
-});
-executor.shutdown();
-
-// Kotlinのディスパッチャー
-// Default - CPU集約的な処理用
-launch(Dispatchers.Default) {
-    val result = performHeavyComputation()
-}
-
-// IO - I/O処理用（ファイル、ネットワーク等）
-launch(Dispatchers.IO) {
-    val data = readFile()
-}
-
-// Main - UIスレッド（Android/JavaFX）
-launch(Dispatchers.Main) {
-    updateUI(data)
-}
-
-// カスタムディスパッチャー
-val customDispatcher = Executors.newFixedThreadPool(4).asCoroutineDispatcher()
-launch(customDispatcher) {
-    // カスタムスレッドプールで実行
-}
-customDispatcher.close()  // 使用後はクローズ
-
-// ディスパッチャーの切り替え
-suspend fun loadAndDisplay() {
-    val data = withContext(Dispatchers.IO) {
-        // IOスレッドでデータ取得
-        loadData()
-    }
-
-    withContext(Dispatchers.Main) {
-        // メインスレッドでUI更新
-        displayData(data)
-    }
-}
-```
-
-### 構造化並行性の概念
-
-```kotlin
-// 構造化並行性 - 親子関係の管理
-fun structuredConcurrency() = runBlocking {
-    println("Parent started")
-
-    launch {
-        delay(1000)
-        println("Child 1 finished")
-    }
-
+fun main() = runBlocking {
     launch {
         delay(500)
-        println("Child 2 finished")
+        println("料理Aが完成！")
     }
 
-    println("Parent waiting for children...")
-    // 自動的にすべての子コルーチンの完了を待つ
-}
-
-// 子のキャンセルは親に伝播
-fun cancellationPropagation() = runBlocking {
-    val parent = launch {
-        val child1 = launch {
-            try {
-                delay(Long.MAX_VALUE)
-            } finally {
-                println("Child 1 cancelled")
-            }
-        }
-
-        val child2 = launch {
-            try {
-                delay(Long.MAX_VALUE)
-            } finally {
-                println("Child 2 cancelled")
-            }
-        }
-    }
-
-    delay(100)
-    parent.cancel()  // 親をキャンセルすると子も自動的にキャンセル
-}
-
-// SupervisorJob - 子の失敗を隔離
-fun supervisorExample() = runBlocking {
-    val supervisor = SupervisorJob()
-    val scope = CoroutineScope(Dispatchers.Default + supervisor)
-
-    val child1 = scope.launch {
-        delay(100)
-        throw Exception("Child 1 failed")
-    }
-
-    val child2 = scope.launch {
-        delay(200)
-        println("Child 2 succeeded")
-    }
-
-    delay(300)
-    // child1が失敗してもchild2は実行される
+    println("注文受付中…")
 }
 ```
+
+実行結果（例）：
+
+```
+注文受付中…
+料理Aが完成！
+```
+
+このように、`launch` は“裏で動く軽作業”のようなイメージです。
+完了を待つ必要がないログ送信やキャッシュ削除などに向いています。
+
+---
+
+#### `async`：結果を返す（`Deferred<T>`）
+
+`async` は「非同期に処理をして結果を返す」ためのものです。
+Javaでいう `Future` に似ています。
+
+```kotlin
+import kotlinx.coroutines.*
+
+suspend fun fetchData(): String {
+    delay(1000)
+    return "データ取得完了"
+}
+
+fun main() = runBlocking {
+    val deferred = async { fetchData() }  // 非同期で実行
+    println("待機中…")
+    println(deferred.await())             // 結果を待つ
+}
+```
+
+出力：
+
+```
+待機中…
+データ取得完了
+```
+
+* `async` は「並列で動かして、あとで結果をまとめる」ときに便利。
+* `.await()` で結果を受け取るまで一時停止します。
+
+---
+
+#### 実践例：複数のAPIを同時に呼び出す
+
+```kotlin
+val a = async { fetchUserInfo() }
+val b = async { fetchUserPosts() }
+val c = async { fetchUserSettings() }
+
+val user = a.await()
+val posts = b.await()
+val settings = c.await()
+```
+
+3つの処理を同時に動かし、結果が揃ったらまとめて使える。
+Threadで書くよりも、ずっとシンプルです。
+
+---
+
+### (2) Flow API
+
+`Flow` は **「非同期でデータを順番に流す仕組み」** です。
+RxJavaのようなリアクティブストリームを、より軽量にKotlinで実現できます。
+
+---
+
+#### 基本形
+
+```kotlin
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+
+fun main() = runBlocking {
+    flow {
+        emit("A")
+        delay(500)
+        emit("B")
+    }.collect { value ->
+        println("受け取った: $value")
+    }
+}
+```
+
+出力：
+
+```
+受け取った: A
+受け取った: B
+```
+
+* `emit()`：データを流す（送信する）
+* `collect()`：データを受け取る（消費する）
+* `delay()` を使ってもスレッドを止めないため、非同期に動作する
+
+---
+
+#### Flow の特徴
+
+* **cold stream（コールドストリーム）**
+  → `collect()` が呼ばれた瞬間に初めて実行が始まる。
+* **キャンセルや例外にも対応**
+  → 中断されたら自動的に安全に停止する。
+
+比喩的に言えば、Flowは「注文が入ってから動くベルトコンベア」。
+必要になるまで作業を始めないのでムダがありません。
+
+---
+
+#### 応用：データを段階的に処理
+
+```kotlin
+flow {
+    (1..3).forEach {
+        delay(300)
+        emit(it)
+    }
+}.map { it * 2 }      // 各値を変換
+ .filter { it > 2 }   // 条件で絞り込み
+ .collect { println(it) }
+```
+
+出力：
+
+```
+4
+6
+```
+
+シーケンス処理のように、データを1つずつリアルタイムで扱えます。
+
+---
+
+### (3) 例外処理とキャンセレーション
+
+コルーチンの強みは「例外やキャンセルも安全に扱える」ことです。
+
+---
+
+#### try/catch で例外を補足
+
+```kotlin
+launch {
+    try {
+        error("エラー発生！")
+    } catch (e: Exception) {
+        println("例外をキャッチ: ${e.message}")
+    }
+}
+```
+
+---
+
+#### coroutineScope：キャンセルの伝搬
+
+`coroutineScope {}` を使うと、親子関係でキャンセルが伝わります。
+
+```kotlin
+suspend fun parentTask() = coroutineScope {
+    launch { delay(1000); println("子A 完了") }
+    launch { delay(2000); println("子B 完了") }
+    throw RuntimeException("親がエラー！")
+}
+```
+
+出力：
+
+```
+Exception in thread "main": 親がエラー！
+```
+
+→ 親が失敗すると、子のコルーチンも全てキャンセルされます。
+これが **構造化並行性** の基本です。
+
+---
+
+#### withTimeout：タイムアウト制御
+
+一定時間内に処理が終わらない場合、例外を発生させて中断できます。
+
+```kotlin
+try {
+    withTimeout(1000) {
+        delay(2000)
+        println("完了")  // 実行されない
+    }
+} catch (e: TimeoutCancellationException) {
+    println("タイムアウト発生！")
+}
+```
+
+出力：
+
+```
+タイムアウト発生！
+```
+
+---
+
+### まとめ
+
+| 概念               | 役割           | 使いどころ             |
+| ---------------- | ------------ | ----------------- |
+| `launch`         | 結果を返さないコルーチン | 裏方処理（ログ送信、UI更新など） |
+| `async/await`    | 結果を返すコルーチン   | 複数処理の並列実行         |
+| `Flow`           | 非同期データストリーム  | 継続的なデータの受け取り      |
+| `coroutineScope` | 親子関係の管理      | 構造化並行性の実現         |
+| `withTimeout`    | タイムアウト制御     | 長時間処理の安全な中断       |
+
+---
+
+コルーチンの「非同期処理」は、複雑なスレッド操作を隠し、
+**「必要なときに動き、不要になったら止まる」**
+そんな自然で安全な並行処理の形を実現します。
+
+## 構造化並行性の概念
+
+### コルーチンがもたらす最大の革命
+
+Kotlinのコルーチンが本質的に優れている理由は、
+単に“軽量なスレッド”だからではありません。
+最大の価値は、**「構造化並行性（Structured Concurrency）」** という仕組みにあります。
+
+これは、**「非同期処理をスコープ（範囲）という枠の中で安全に管理する」**という発想です。
+
+---
+
+### なぜ構造化が必要なのか
+
+従来のスレッドベースの並行処理では、
+スレッドを作った人と終了させる人が別になることがよくあります。
+
+```java
+new Thread(() -> {
+    doSomething();
+}).start();
+
+// この後、親スレッドは終了しても子スレッドは動き続ける
+```
+
+このように「親が終わっても子が生き続ける」構造では、
+
+* メモリリーク
+* 処理の競合
+* 終了タイミングの曖昧さ
+  といった問題が起こりやすく、
+  実際の現場では**“非同期の後片付け”が最もバグを生む部分**になっていました。
+
+---
+
+### コルーチンの考え方
+
+コルーチンでは、すべての非同期処理を**スコープ**の中で動かします。
+スコープを抜ける（＝ブロックを出る）と、その中で動いている子コルーチンはすべて完了している状態になります。
+
+つまり、
+
+* 「親が生きている限り子も生きる」
+* 「親がキャンセルされたら、子も全員止まる」
+  という明確なルールで管理されます。
+
+---
+
+### 実際の例
+
+```kotlin
+import kotlinx.coroutines.*
+
+fun main() = runBlocking {
+    coroutineScope {
+        launch {
+            delay(1000)
+            println("taskA 完了")
+        }
+        launch {
+            delay(500)
+            println("taskB 完了")
+        }
+    }
+    println("すべてのタスク完了")
+}
+```
+
+出力：
+
+```
+taskB 完了
+taskA 完了
+すべてのタスク完了
+```
+
+`coroutineScope` ブロックを抜けた時点で、
+すべての `launch` が確実に終わっています。
+この「完了保証」は、従来のスレッドにはありませんでした。
+
+---
+
+### スコープがもたらす3つの安全性
+
+1. **ライフサイクルの一貫性**
+   親スコープを抜けた時点で、子の作業はすべて終了。
+   → 「いつ終わるのか」が明確。
+
+2. **キャンセル伝播**
+   親が止まれば、子も自動的に止まる。
+   → 途中キャンセル時の中途半端な状態がなくなる。
+
+3. **例外処理の一元化**
+   子コルーチンのエラーが親に伝わる。
+   → 例外をスコープ単位で扱えるため、エラー処理が整理される。
+
+---
+
+### もう少し深い話：`coroutineScope` と `supervisorScope`
+
+Kotlinには、スコープに似た2つの構造があります。
+
+* `coroutineScope`
+  → 子のどれかが失敗すると、他の子もすべてキャンセルされる（安全重視）
+* `supervisorScope`
+  → 一つの失敗で全体を止めない（独立タスク重視）
+
+```kotlin
+supervisorScope {
+    launch { taskA() } // 失敗しても他のlaunchは続く
+    launch { taskB() }
+}
+```
+
+状況に応じてどちらのスコープを使うか選べるのが、Kotlinの柔軟さです。
+
+---
+
+### Threadとの対比
+
+| 項目     | Thread    | Coroutine        |
+| ------ | --------- | ---------------- |
+| 管理単位   | 個々のスレッド   | スコープ（まとまり）       |
+| 親子関係   | なし        | 明確に存在する          |
+| 終了の扱い  | 明示的に制御が必要 | スコープを抜けると自動完了    |
+| 例外伝播   | 親に伝わらない   | 親に自動で伝わる         |
+| メモリリーク | 起きやすい     | 起きにくい（自動クリーンアップ） |
+
+---
+
+### 構造化並行性の利点
+
+* **コードの流れがわかりやすい**：非同期でも“順番に読める”
+* **メンテナンス性が高い**：スコープごとに責任範囲を分離できる
+* **バグが減る**：放置タスク・ゾンビ処理が発生しない
+
+構造化並行性は、単に「非同期を使いやすくする」ものではなく、
+**非同期を“安全に制御可能な構造”に変える設計思想**です。
+
+---
+
+### まとめ
+
+コルーチンの構造化並行性は、
+
+> 「非同期処理を1つのまとまりとして安全に管理する」
+> という考え方をプログラムの構文として保証するものです。
+
+スレッドのように“作って放置する”のではなく、
+“スコープを抜ける＝すべての処理が終わる”という直感的で安全な構造。
+
+この設計思想が、コルーチンが「軽いだけでなく、安心して使える非同期処理」を実現している最大の理由です。
+
 
 ## まとめ
 
-本章では、Kotlinコルーチンの基礎について学びました：
+### コルーチンの要点
 
-✅ **軽量で効率的な並行処理の仕組み**
-✅ **suspend関数による一時停止可能な処理**
-✅ **async/awaitによる並列実行**
-✅ **Flowによる非同期データストリーム**
-✅ **構造化並行性による安全なコルーチン管理**
+Kotlinのコルーチンは、**「複雑な非同期処理をシンプルに、安全に扱う」**ための仕組みです。
+ここまで学んできた内容を、もう一度整理しておきましょう。
 
-Kotlinコルーチンにより、従来のスレッドやCompletableFutureよりも簡潔で読みやすい非同期コードを書くことができます。
+---
 
-## 演習問題
+#### 1. 軽量で安全な非同期処理
 
-1. 3つのAPIエンドポイントから並列でデータを取得し、すべての結果を結合して返す関数を実装してください。1つでも失敗した場合はエラーを返すようにしてください。
+コルーチンはスレッドよりもずっと軽く、数万単位で同時に動かせます。
+しかもスコープ（範囲）で管理されるため、処理の漏れや暴走を防げます。
 
-2. リトライロジックを持つsuspend関数を実装してください。最大3回まで再試行し、各試行の間に指数バックオフ（100ms, 200ms, 400ms）を入れます。
+---
 
-3. Flowを使って、1秒ごとに現在時刻を発行し続けるストリームを実装してください。収集側では、時刻をフォーマットして表示します。
+#### 2. `suspend` で中断可能
+
+`suspend` 関数を使うことで、処理を一時停止し、
+再開したいタイミングで自然に続きが実行されます。
+スレッドを止めるのではなく、**「処理の流れを一時的に預ける」**イメージです。
+
+---
+
+#### 3. `async` / `await` で自然な並列処理
+
+`async` で並行実行、`await()` で結果を待つだけ。
+複数の処理を同時に動かして、結果をまとめるコードがとても書きやすくなります。
+
+---
+
+#### 4. `Flow` で非同期ストリーム処理
+
+`Flow` はデータを「流れ」として非同期に扱える仕組みです。
+APIの定期ポーリングやリアルタイム更新など、
+「少しずつデータが届く」ようなケースに最適です。
+
+---
+
+#### 5. 構造化並行性で安全なキャンセル
+
+すべての非同期処理はスコープで管理され、
+親が終われば子も確実に終わります。
+エラーやキャンセルも自動で伝わるため、**「後始末まで含めて安全」**です。
+
+---
+
+### コルーチンがもたらす新しい並行処理モデル
+
+これまでのJavaの並行処理は、
+
+* スレッドを明示的に作って動かす
+* FutureやExecutorを手動で管理する
+  という“道具を操る”時代でした。
+
+一方で、Kotlinのコルーチンは、
+
+> 「何をしたいか」を書くだけで、
+> 「どう並行して動くか」は仕組みが自動で最適化してくれる。
+
+コードの見通しがよく、スレッドの複雑さを意識せずに並行処理が書けます。
+
+---
+
+### 最後に
+
+コルーチンは単なる“非同期ライブラリ”ではなく、
+**「プログラムの時間の流れをデザインするための構文」**です。
+
+これを理解すれば、
+複雑だった「並行処理」が、まるで直線的なストーリーのように書けるようになります。
+そしてそれが、Kotlinが目指す「読みやすく、安全で、強力なコード」の核心です。
