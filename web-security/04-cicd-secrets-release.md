@@ -86,6 +86,7 @@ CI/CD環境にあるもの:
      - クラウドリソースの悪用
      - さらなるサプライチェーン攻撃
 ```
+![sample](./images/04-cicd-secrets-release-image-01.png)
 
 ### 2.2 分離されていない場合の問題
 
