@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>語彙シェア会 — 方針と進め方</title>
+<style>
+  :root {
+    --bg: #fafaf8;
+    --fg: #1f2328;
+    --muted: #6b7280;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --accent: #b45309;
+    --accent-soft: #fef3e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181d;
+      --fg: #e6e6e3;
+      --muted: #9ca3af;
+      --card: #1f232b;
+      --border: #333842;
+      --accent: #f59e0b;
+      --accent-soft: #2c2416;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.85;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  header h1 { font-size: 1.6rem; margin: 0 0 .5rem; }
+  header p.tagline {
+    margin: 0 0 2rem;
+    padding: .75rem 1rem;
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-weight: 600;
+  }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  section h2 {
+    font-size: 1.1rem;
+    margin: 0 0 .75rem;
+    color: var(--accent);
+  }
+  section h3 { font-size: .95rem; margin: 1.1rem 0 .3rem; }
+  p { margin: .4rem 0; font-size: .95rem; }
+  ul, ol { margin: .4rem 0; padding-left: 1.4rem; font-size: .95rem; }
+  li { margin: .25rem 0; }
+  li ul { margin-top: .15rem; }
+  strong { color: var(--accent); }
+  table.timetable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+    margin-top: .5rem;
+  }
+  table.timetable th, table.timetable td {
+    text-align: left;
+    padding: .45rem .6rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.timetable th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  table.timetable td.time { white-space: nowrap; color: var(--accent); font-weight: 600; }
+  .note { font-size: .85rem; color: var(--muted); }
+  a { color: var(--accent); }
+  nav.sessions ul { list-style: none; padding-left: 0; }
+  nav.sessions li::before { content: "▸ "; color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>語彙シェア会 — 方針と進め方</h1>
+    <p class="tagline">「知っている語彙の総和」を広げ、深掘りする「問いを立てる」ことにフォーカスする</p>
+  </header>
+
+  <section>
+    <h2>目的</h2>
+    <p>ゴールを「理解すること」に置かない。深い理解は各自が後からAIと対話すればできる。この会が担うのは:</p>
+    <ol>
+      <li><strong>探索の外注</strong> — 自分一人では検索クエリすら思いつかない領域の語彙に触れる。AIは「聞けば答える」が「何を聞くべきか」は教えてくれない。そこを人間の多様性で補う</li>
+      <li><strong>認知プロセスの共有</strong> — 何を面白いと思ったか(選球眼)、どんな問いを立てたか(問いの癖)、AIとどう壁打ちしたか(掘り方の技術)を比較する。語彙の共有を入り口にした「どう学ぶか」の共有</li>
+      <li><strong>問いを生成する能力の訓練</strong> — AIで誰でも答えに到達できる時代に差がつくのは、答える力ではなく<strong>問いを立てる力</strong>。問い書き捨て・壁打ちハイライト・公開壁打ちと、フォーマット全体が問い生成の反復訓練になっている</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>語彙の選定原則</h2>
+    <ul>
+      <li><strong>発表者の好奇心に忠実な5語</strong>。チームへの役立ちで剪定しない──役立つかの判断は聞いた側が各自やればいい
+        <ul>
+          <li>選定理由そのものが情報になる(5語のラインナップ=その人の今の問題意識のスナップショット)</li>
+          <li>興味のある語を調べるのは娯楽なので、準備の持続コストが最も低い</li>
+        </ul>
+      </li>
+      <li>粒度は「用語1個」に限定しない。概念・パターン・ツール・論争まで可(例: Idempotency-Key、CRDT、Cell-based architecture、「Vibe Codingは是か非か」)</li>
+      <li><strong>準備の深さは発表者の裁量</strong>。しっかり調べてきてもいいし、AIに30分聞いた範囲でもいい。ただし5語すべてに触れる以上、最低限の咀嚼は必要になる──その負荷が学習の強制力として機能する</li>
+      <li><strong>「わからないけど気になる」語彙を歓迎する</strong>。発表責任は「理解したことを説明する責任」ではなく<strong>「自分の現在地を正直に話す責任」</strong>──「壁打ちしたけどここから先がわからなかった」は立派に責任を果たした発表
+        <ul>
+          <li>ただし「?」語彙にも最低ライン:「なぜ気になるか」と「何を試してどこで詰まったか」は語れること。調べた上での「わからない」と調べていない「わからない」は別物</li>
+        </ul>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>当日の流れ(1人30分)</h2>
+    <table class="timetable">
+      <tr><th>時間</th><th>フェーズ</th><th>内容</th></tr>
+      <tr>
+        <td class="time">0:30</td>
+        <td>選定の来歴</td>
+        <td>「なぜこの5語だったか」を一言。情報摂取の経路も共有される</td>
+      </tr>
+      <tr>
+        <td class="time">2:00</td>
+        <td>語彙メニューの提示</td>
+        <td>5語のタイトル+一言+<strong>理解度の自己申告ラベル</strong>(◎説明できる / ○輪郭はわかる / ?気になるだけでわかってない)を見せる。「?」を付ける行為自体が「わからないと言っていい」の制度化</td>
+      </tr>
+      <tr>
+        <td class="time">3:00</td>
+        <td>問い書き捨て</td>
+        <td>聴衆は説明を聞く<strong>前に</strong>、各語に対する最初の問い・想像をチャットに書き捨てる(生成効果。凝らない、書き捨てが大事)</td>
+      </tr>
+      <tr>
+        <td class="time">12:00</td>
+        <td>好奇心投票 → 深掘り</td>
+        <td>聴衆が「一番聞きたい語」を選び、<strong>2語に剪定してしっかり話す</strong>。「?」の語にあえて投票してよい──選ばれたら解説の代わりに<strong>公開壁打ちモード</strong>:なぜ気になるか・どこで詰まったかを話し、残り時間はその場で全員+AIで壁打ちする</td>
+      </tr>
+      <tr>
+        <td class="time">4:00</td>
+        <td>剪定外の語の概要</td>
+        <td>選ばれなかった3語も概要ベースで発表する。5語すべてに発表責任がある</td>
+      </tr>
+      <tr>
+        <td class="time">8:00</td>
+        <td>対話</td>
+        <td>事前の問いと照らして「予想/期待と何が違ったか」を話す</td>
+      </tr>
+    </table>
+    <p class="note">5語を均等に扱わないのが肝。均等に割ると1語6分の「浅いLT5連発」になり、ライトニング形式の劣化版に転落する。ただし剪定外の語も概要は話す──全語に発表責任を持たせることで準備の強制力を保ちつつ、深さの配分は投票で決める。発表者は5語をタイトル+一言で売り込む必要があり、選定と言語化の意識が研がれる──「一覧した瞬間に好奇心が反応するか」が選別装置。</p>
+  </section>
+
+  <section>
+    <h2>発表テンプレ(深掘りする語のみ)</h2>
+    <ol>
+      <li>その語彙は何か(1-2文)</li>
+      <li><strong>なぜ自分はそれに引っかかったか</strong>(ここが本体)</li>
+      <li>自分たちの仕事にどう関係しそうか/しなさそうか</li>
+      <li><strong>壁打ちハイライト</strong>: 一番理解が進んだ質問と、一番無駄だった質問を1つずつ</li>
+      <li>まだわかっていないこと・残った問い</li>
+    </ol>
+    <p class="note">壁打ちハイライトはこの会の独自価値。「何を学んだか」でなく「どう学んだか」のログを持ち寄ることで、疑い方・掘り方の技術が転移する。全ログ共有は重すぎるのでハイライト2問に絞る。</p>
+  </section>
+
+  <section>
+    <h2>記録</h2>
+    <ul>
+      <li>1語彙1メモを軽く残す。書くのは発表者でなく<strong>聞いた側の誰か</strong>が1-2行(「どう受け取ったか」が残り、聞く姿勢も変わる)</li>
+      <li>聴衆が書き捨てた「最初の問い」もそのまま残す(問いの癖の比較材料)</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>心理的安全性の運用(自己開示を支える側の設計)</h2>
+    <ul>
+      <li><strong>開示より応答</strong>: 安全性は「わからない」と言った直後の周囲の反応で作られる。主催者は最初の開示者であると同時に<strong>最初の応答者</strong>──初期は「実は自分も」「その詰まり方面白い」と乗っかる応答を意図的に行う</li>
+      <li><strong>開示は上から、かつ本物で</strong>: 本当は説明できる語への演技的な「?」は見抜かれて逆効果。本当にわかっていない語(わかっていないのが少し恥ずかしい語ほど良い)を出す</li>
+      <li><strong>評価との切断を明言する</strong>: 理解度ラベルは評価と無関係、と初回とメンバー追加時に儀式的に宣言する</li>
+      <li><strong>儀式を省略しない</strong>: 問い書き捨て(全員が同時にわかってなさを晒す均等な儀式)・?ラベル・無駄だった質問の枠は、空気が良くなっても飛ばさない。飛ばした回から静かに劣化する</li>
+      <li><strong>安全性≠ぬるさ</strong>: 突っ込み合い(「○○と何が違うの?」)は維持する。突っ込みは語彙と理解に向け、人に向けない。「?」語彙に誰も突っ込まなくなったら無関心・遠慮のシグナル</li>
+      <li><strong>観測指標</strong>: 発言前の謝罪(「すみません、変な質問かもですが」)の頻度。減れば育っている、増えたら応答をどこかで間違えている</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>開催回</h2>
+    <nav class="sessions">
+      <ul>
+        <li><a href="20260819/index.html">2026-08-19</a> — git worktree / 中華モデルと米国モデルの戦略 / TanStack Start / ECS・Kubernetes / Cloudflareの収益モデル</li>
+      </ul>
+    </nav>
+  </section>
+
+</main>
+</body>
+</html>
