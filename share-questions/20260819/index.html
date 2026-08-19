@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>語彙シェア会 2026-08-19 — 問いのindex</title>
+<style>
+  :root {
+    --bg: #fafaf8;
+    --fg: #1f2328;
+    --muted: #6b7280;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --accent: #b45309;
+    --accent-soft: #fef3e2;
+    --seed-bg: #f0f4f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181d;
+      --fg: #e6e6e3;
+      --muted: #9ca3af;
+      --card: #1f232b;
+      --border: #333842;
+      --accent: #f59e0b;
+      --accent-soft: #2c2416;
+      --seed-bg: #232936;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.8;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  header h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  header p.date { color: var(--muted); margin: 0 0 .5rem; font-size: .9rem; }
+  header p.lead { margin: 0 0 2rem; font-size: .95rem; color: var(--muted); }
+
+  details.term {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  details.term summary {
+    cursor: pointer;
+    padding: 1rem 1.25rem;
+    list-style: none;
+    display: flex;
+    align-items: baseline;
+    gap: .75rem;
+    flex-wrap: wrap;
+  }
+  details.term summary::-webkit-details-marker { display: none; }
+  details.term summary::before {
+    content: "▸";
+    color: var(--accent);
+    flex: none;
+  }
+  details.term[open] summary::before { content: "▾"; }
+  .term-title { font-weight: 700; font-size: 1.05rem; }
+  .label {
+    flex: none;
+    font-size: .75rem;
+    padding: .1rem .5rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .oneline {
+    width: 100%;
+    margin-left: 1.4rem;
+    color: var(--muted);
+    font-size: .88rem;
+  }
+  .body { padding: 0 1.25rem 1.25rem 2.6rem; }
+  .body h3 {
+    font-size: .85rem;
+    color: var(--accent);
+    margin: 1.2rem 0 .3rem;
+    letter-spacing: .05em;
+  }
+  .body h3:first-child { margin-top: 0; }
+  .body p { margin: .3rem 0; font-size: .95rem; }
+  .body ul { margin: .3rem 0; padding-left: 1.3rem; font-size: .95rem; }
+  .fill {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: .6rem 1rem;
+    color: var(--muted);
+    font-size: .88rem;
+    margin-top: .4rem;
+  }
+  .controls { margin-bottom: 1.5rem; }
+  .controls button {
+    font: inherit;
+    font-size: .85rem;
+    padding: .35rem .9rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--fg);
+    cursor: pointer;
+    margin-right: .5rem;
+  }
+  .controls button:hover { border-color: var(--accent); color: var(--accent); }
+
+  section.agenda {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+  section.agenda h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
+  table.timetable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+  }
+  table.timetable th, table.timetable td {
+    text-align: left;
+    padding: .45rem .6rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.timetable th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  table.timetable td.time { white-space: nowrap; color: var(--accent); font-weight: 600; }
+  section.agenda p.note { font-size: .85rem; color: var(--muted); margin: .75rem 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>語彙シェア会 — 問いのindex</h1>
+    <p class="date">2026-08-19</p>
+    <p class="lead">発表者の好奇心に忠実な5語。理解度ラベル(◎説明できる / ○輪郭はわかる / ?気になるだけ)は発表者が自己申告で記入する。聴衆は概要を開く<strong>前に</strong>、まず各語への最初の問いを書き捨てること。</p>
+  </header>
+
+  <section class="agenda">
+    <h2>当日の進行(1人30分)</h2>
+    <table class="timetable">
+      <tr><th>時間</th><th>フェーズ</th><th>内容</th></tr>
+      <tr>
+        <td class="time">0:30</td>
+        <td>選定の来歴</td>
+        <td>「なぜこの5語だったか」を一言。情報摂取の経路も共有する</td>
+      </tr>
+      <tr>
+        <td class="time">2:00</td>
+        <td>語彙メニュー提示</td>
+        <td>5語のタイトル+一言+理解度ラベル(◎説明できる / ○輪郭はわかる / ?気になるだけ)を見せる</td>
+      </tr>
+      <tr>
+        <td class="time">3:00</td>
+        <td>問い書き捨て</td>
+        <td>聴衆は説明を聞く<strong>前に</strong>、各語への最初の問い・想像をチャットに書き捨てる。凝らない、書き捨てが大事</td>
+      </tr>
+      <tr>
+        <td class="time">12:00</td>
+        <td>好奇心投票 → 深掘り2語</td>
+        <td>聴衆が「一番聞きたい語」に投票し、2語に剪定してしっかり話す。「?」の語が選ばれたら解説の代わりに<strong>公開壁打ちモード</strong>(なぜ気になるか・どこで詰まったかを話し、全員+AIでその場で壁打ち)</td>
+      </tr>
+      <tr>
+        <td class="time">4:00</td>
+        <td>剪定外3語の概要</td>
+        <td>選ばれなかった3語も概要ベースで発表。5語すべてに発表責任がある</td>
+      </tr>
+      <tr>
+        <td class="time">8:00</td>
+        <td>対話</td>
+        <td>事前に書き捨てた問いと照らして「予想/期待と何が違ったか」を話す</td>
+      </tr>
+    </table>
+    <p class="note">深掘り語の発表テンプレ: ①その語彙は何か(1-2文) ②なぜ自分は引っかかったか(ここが本体) ③仕事にどう関係しそうか ④壁打ちハイライト(一番理解が進んだ質問と一番無駄だった質問を1つずつ) ⑤まだわかっていないこと。記録は聞いた側の誰かが1語彙1-2行残す。</p>
+  </section>
+
+  <div class="controls">
+    <button onclick="document.querySelectorAll('details.term').forEach(d=>d.open=true)">すべて開く</button>
+    <button onclick="document.querySelectorAll('details.term').forEach(d=>d.open=false)">すべて閉じる</button>
+  </div>
+
+  <!-- 1. git worktree -->
+  <details class="term">
+    <summary>
+      <span class="term-title">git worktree</span>
+      <span class="label">◎/○/? 記入</span>
+      <span class="oneline">1つのリポジトリから複数の作業ディレクトリを同時に生やす、branch切り替え不要の並行作業機構</span>
+    </summary>
+    <div class="body">
+      <h3>概要</h3>
+      <p>通常のgitでは1リポジトリ=1作業ディレクトリで、別ブランチの作業には <code>checkout</code>(stash・コンフリクトの儀式込み)が必要になる。<code>git worktree add</code> は同じ <code>.git</code> オブジェクトストアを共有したまま、別ブランチをチェックアウトした作業ディレクトリを別パスに追加する。cloneと違いディスクと履歴は共有され、片方でのcommitは即座にもう片方から見える。</p>
+      <p>古くからある機能(Git 2.5 / 2015年)だが、近年再注目されている理由はAIコーディングエージェントの並列実行。複数のエージェントに同一リポジトリの別タスクを同時に触らせるとき、worktreeごとに隔離すればファイル競合なしに並走できる。Claude CodeやCursorなどのツールがworktree統合を組み込み始めたことで「知る人ぞ知る機能」から「エージェント時代の基本操作」に格上げされつつある。</p>
+      <h3>なぜ引っかかったか(発表者記入)</h3>
+      <div class="fill">ここに発表者が書く</div>
+    </div>
+  </details>
+
+  <!-- 2. 中華モデル vs 米国モデル -->
+  <details class="term">
+    <summary>
+      <span class="term-title">AIの中華モデルと米国モデルの戦略の違いと歴史</span>
+      <span class="label">◎/○/? 記入</span>
+      <span class="oneline">クローズドで最先端を売る米国勢と、オープンウェイトで効率と普及を取る中国勢──対照的な戦略はどう生まれたか</span>
+    </summary>
+    <div class="body">
+      <h3>概要</h3>
+      <p>米国勢(OpenAI・Anthropic・Google)は最先端モデルを非公開のまま、API課金とエンタープライズ契約で回収するクローズド戦略が主流。莫大な計算資源への先行投資を前提に「フロンティア性能」で差別化する。一方、中国勢(DeepSeek・Alibaba Qwen・Moonshotなど)はモデルの重みを公開する「オープンウェイト」戦略が目立つ。象徴的なのが2025年初頭のDeepSeek-R1で、米国トップ級に迫る推論性能を桁違いに低い(と主張される)学習コストで達成し重みを公開、米国株式市場を揺らした。</p>
+      <p>この分岐の背景には米国の半導体輸出規制がある。最先端GPUへのアクセスを制限された中国勢は、計算量で殴る路線が取りにくく、MoE(Mixture of Experts)や蒸留などの効率化技術に注力し、性能あたりコストで勝負する方向へ進んだ。またオープン公開は、クローズドAPI市場で米国勢に勝てない状況下で、エコシステムと標準を先に取りに行く戦略とも読める(かつてのAndroid的な構図)。ただし「中国=オープン、米国=クローズド」は単純化で、Meta(Llama)やOpenAIのオープンウェイト公開など米国側にもオープン路線はあり、勢力図は流動的。</p>
+      <h3>なぜ引っかかったか(発表者記入)</h3>
+      <div class="fill">ここに発表者が書く</div>
+    </div>
+  </details>
+
+  <!-- 3. TanStack Start -->
+  <details class="term">
+    <summary>
+      <span class="term-title">TanStack Startの隆盛</span>
+      <span class="label">◎/○/? 記入</span>
+      <span class="oneline">TanStack Router/Queryの系譜から出たフルスタックReactフレームワーク。「Next.js一強」への不満の受け皿として台頭</span>
+    </summary>
+    <div class="body">
+      <h3>概要</h3>
+      <p>TanStack Startは、TanStack Query(旧React Query)やTanStack Routerで知られるTanstackエコシステム発のフルスタックReactフレームワーク。Viteベースで、型安全なルーティング(パラメータや検索クエリまで型が通る)を核に、SSR・サーバーファンクション・ストリーミングを提供する。2025年に正式リリースに到達し、Next.jsの対抗馬として急速に注目を集めた。</p>
+      <p>隆盛の背景は技術と政治の両方にある。技術面では、Next.jsのApp Router/React Server Componentsへの複雑さ疲れに対し、「クライアントファースト寄りで、サーバー機能は必要な分だけ」というシンプルさが刺さった。政治面では、Next.jsとVercelの一体化(フレームワークがホスティング企業に所有されること)への警戒感があり、特定ベンダーに依存しないTanStackの立ち位置が支持された。TanStack Routerで培った型安全性の評判が信頼の下地になっている。</p>
+      <h3>なぜ引っかかったか(発表者記入)</h3>
+      <div class="fill">ここに発表者が書く</div>
+    </div>
+  </details>
+
+  <!-- 4. ECS vs Kubernetes -->
+  <details class="term">
+    <summary>
+      <span class="term-title">ECS / Kubernetesの違い</span>
+      <span class="label">◎/○/? 記入</span>
+      <span class="oneline">同じ「コンテナオーケストレーション」でも、AWS専用のシンプル路線と業界標準の汎用プラットフォームで思想が違う</span>
+    </summary>
+    <div class="body">
+      <h3>概要</h3>
+      <p>どちらもコンテナを複数台のマシンに配置・スケール・回復させるオーケストレーターだが、設計思想が対照的。ECS(Elastic Container Service)はAWS純正のマネージドサービスで、ALB・IAM・CloudWatchなどAWSの部品と密結合する前提で作られており、コントロールプレーンの運用は完全にAWS任せ。学習コストが低く、Fargateと組み合わせればサーバー管理自体が消える。代償としてAWSロックインで、AWSにない概念は表現できない。</p>
+      <p>Kubernetes(k8s)はGoogle発・CNCF管理のオープンソース標準で、宣言的APIと拡張機構(CRD/Operator)を持つ「プラットフォームを作るためのプラットフォーム」。どのクラウドでもオンプレでも動き、Helm・ArgoCD・サービスメッシュなど巨大なエコシステムがある。代償は圧倒的な複雑さと運用負荷で、EKSのようなマネージド版でもアップグレードやアドオン管理は利用者側の仕事として残る。実務では「AWS完結・小規模チームならECS、マルチクラウド・大組織・プラットフォームチームを持つならk8s」が定番の整理だが、この定番自体を疑う余地もある。</p>
+      <h3>なぜ引っかかったか(発表者記入)</h3>
+      <div class="fill">ここに発表者が書く</div>
+    </div>
+  </details>
+
+  <!-- 5. Cloudflare -->
+  <details class="term">
+    <summary>
+      <span class="term-title">Cloudflareの収益モデル</span>
+      <span class="label">◎/○/? 記入</span>
+      <span class="oneline">気前のよい無料枠はどう回収されているのか──ネットワーク自体を資産に変えるビジネスの構造</span>
+    </summary>
+    <div class="body">
+      <h3>概要</h3>
+      <p>CloudflareはCDN・DNS・DDoS防御を無料で大盤振る舞いすることで知られるが、収益の柱は有料プラン(Pro/Business)と、売上の大半を占めるエンタープライズ契約(Zero Trust、WAF、ネットワークセキュリティ群)。無料ユーザーは単なる客寄せではなく資産で、世界中のトラフィックを通過させること自体が脅威インテリジェンスの学習データとなり、有料セキュリティ製品の精度を上げる。また無料枠で個人開発者に浸透し、その開発者が所属企業に持ち込むボトムアップの営業経路(PLG)としても機能する。</p>
+      <p>もう一つの特徴は原価構造。世界300以上の都市にPoPを持つ自前ネットワークを持ち、ピアリング(相互接続)によって帯域コストを極端に下げている。R2(オブジェクトストレージ)の「エグレス無料」はこの構造の上に成立し、AWSの転送料金という業界最大の不満点を直撃する競争戦略になっている。近年はWorkers(エッジコンピューティング)やAI推論基盤で「CDN企業」から「第4のクラウド」への転身を図っており、収益モデルの重心がどう動くかが見どころ。</p>
+      <h3>なぜ引っかかったか(発表者記入)</h3>
+      <div class="fill">ここに発表者が書く</div>
+    </div>
+  </details>
+
+</main>
+</body>
+</html>
