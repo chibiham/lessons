@@ -16,7 +16,7 @@
   <circle cx="150" cy="350" r="25" fill="#ffedd5" stroke="#c2410c" stroke-width="2" />
   <text x="150" y="355" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">x₃</text>
 
-  <text x="150" cy="400" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle"
+  <text x="150" y="400" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle"
     fill="#c2410c">入力層</text>
 
   <!-- 隠れ層 -->
@@ -32,7 +32,7 @@
   <circle cx="400" cy="400" r="25" fill="#dbeafe" stroke="#3b82f6" stroke-width="2" />
   <text x="400" y="405" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">h₄</text>
 
-  <text x="400" cy="450" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle"
+  <text x="400" y="450" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle"
     fill="#3b82f6">隠れ層</text>
 
   <!-- 出力層 -->
@@ -42,7 +42,7 @@
   <circle cx="650" cy="300" r="25" fill="#dcfce7" stroke="#22c55e" stroke-width="2" />
   <text x="650" y="305" font-family="Arial, sans-serif" font-size="14" text-anchor="middle">y₂</text>
 
-  <text x="650" cy="400" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle"
+  <text x="650" y="400" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle"
     fill="#22c55e">出力層</text>
 
   <!-- 入力層から隠れ層への接続 -->
