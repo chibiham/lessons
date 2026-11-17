@@ -24,36 +24,39 @@
   <p class="footer">図解は再生・コマ送りで確認できます。<br>自動再生はしません。説明のペースで進めてください。</p>
 </aside>
 <main class="reading" id="main">
-<div class="toolbar"><span>CHAPTER 07 ／ 全9章 · 動く図解版</span><span>講義45分＋演習・質疑15分</span></div>
+<div class="toolbar"><span>CHAPTER 07 ／ 全9章 · 動く図解版</span><span>Attentionから文章生成まで</span></div>
 <article class="paper lesson" id="article" tabindex="-1">
-<h1>第7章：Attention と Transformer<br>必要な情報を、その都度参照する</h1>
-<p class="lead">RNNの「記憶を持ち回る」仕組みから、関連する情報を直接参照する仕組みへ。小さな数値例を出発点に、文章を生成するまでの道筋をつなぎます。</p>
-<div class="present-tools"><button type="button" class="btn" id="presentation-toggle" aria-pressed="false">発表表示に切り替え</button><a href="script/7_attention_transformer.md">発表原稿（Markdown）</a><span>各図の数字は、実モデルの実測値ではなく説明用です。</span></div>
-<noscript><p class="callout warn">操作できる図解にはJavaScriptが必要です。本文と図解直後の説明・演習解答はそのまま読めます。</p></noscript>
+<h1>第7章：Attention（アテンション） と Transformer（トランスフォーマー）<br>必要な情報を、その都度参照する</h1>
+<p class="lead">前章のRNN（アールエヌエヌ）は、記憶を次へ渡しながら系列データを処理していました。本章では、必要な情報を直接参照するAttentionから、文脈を取り込むSelf-Attention（セルフアテンション）、次の語を予測するTransformerへと進み、最後にBERT（バート）とGPT（ジーピーティー）の構成の違いを見ます。</p>
+<p class="note">各図の数字は、実モデルの実測値ではなく説明用です。</p>
+<noscript><p class="callout warn">操作できる図解にはJavaScriptが必要です。本文と図解直後の説明はそのまま読めます。</p></noscript>
 <div class="callout tip"><b>今日の到達点</b><ul class="goal-list"><li>Attentionが「重みを計算して情報を混ぜる」仕組みだと説明できる。</li><li>Self-Attentionと位置情報が、それぞれ何を担うか説明できる。</li><li>Transformerの入力から出力までを追い、学習の並列化と生成の逐次性を区別できる。</li></ul></div>
 <nav class="lesson-map" aria-label="本章の道筋"><a href="#s7-1">① 圧縮から参照へ</a><span aria-hidden="true">→</span><a href="#s7-2">② 文脈を取り込む</a><span aria-hidden="true">→</span><a href="#s7-3">③ 単語を予測する</a><span aria-hidden="true">→</span><a href="#s7-4">④ BERTとGPTへ</a></nav>
+<p>章末では、Attentionから文章生成までの流れを振り返り、次章のLLM（エルエルエム）の学習・生成・実務への組み込みにつなげます。</p>
 
 <h2 id="s7-1">7.1 Attention — 必要な情報を参照する</h2>
+<p><strong>Attentionは、複数の情報の中から「今、どの情報をどれだけ使うか」を計算し、その重みで情報を取り込む仕組みです。</strong>翻訳では、作ろうとしている訳語に応じて、入力文の参照先の配分を変えます。</p>
+<p>まず前章のSeq2Seq（シーク・トゥ・シーク）で何が課題だったかを振り返り、Attentionがその課題をどう緩和するのか、具体的な計算とともに見ていきます。</p>
 <h3 id="s7-recap">6章の復習：RNN系の2つの壁</h3>
-<p>6章では、隠れ状態を更新しながら系列を1語ずつ読むRNNと、記憶を保ちやすくしたLSTM・GRUを学びました。最後のSeq2Seqでは、Encoderの記憶からDecoderが翻訳文を作りました。</p>
-<div class="two-col"><div class="concept"><strong>壁① 固定長ボトルネック</strong><p>基本的なSeq2Seqでは、入力文の情報を最後の固定長の状態に集約します。長い文の詳細を保つのが難しくなります。</p></div><div class="concept"><strong>壁② 時間方向の逐次処理</strong><p>RNNの次の隠れ状態を計算するには、前の状態が必要です。系列内の全位置をまとめて計算できません。</p></div></div>
+<p>6章では、隠れ状態を更新しながら系列を1語ずつ読むRNNと、記憶を保ちやすくしたLSTM（エルエスティーエム）・GRU（ジーアールユー）を学びました。最後のSeq2Seqでは、Encoder（エンコーダー）の記憶からDecoder（デコーダー）が翻訳文を作りました。</p>
+<div class="two-col"><div class="concept"><strong>壁① 固定長ボトルネック</strong><p>基本的なSeq2Seqでは、入力文の情報を最後の固定長の状態に集約します。長い文の詳細を保つのが難しくなります。</p></div><div class="concept"><strong>壁② 時間方向の逐次処理（ちくじしょり）</strong><p>RNNの次の隠れ状態を計算するには、前の状態が必要です。系列内の全位置をまとめて計算できません。</p></div></div>
 <p><strong>Attentionはまず壁①を緩和します。</strong>RNNにAttentionを追加してもRNN自体の逐次処理は残ります。壁②への大きな転換が、後半のTransformerです。</p>
 <div class="demo" id="d7-reference" aria-label="最後の状態だけを渡す方法と、全状態を参照するAttentionの比較"><div class="demo-head"><span class="demo-kicker">コマ送り</span><h4 class="demo-title">翻訳する語が変わると、参照先も変わる</h4></div><div class="demo-stage"><p>最後の状態だけに頼る代わりに、入力の各位置の状態を残し、出力する語に応じて参照の配分を変えます。</p></div></div>
 <p>例えば「会議室」に関する訳語を作る場面と、「15時」に関する訳語を作る場面では、必要な情報が違います。Attentionは、その都度<strong>どの入力をどれだけ使うか</strong>を計算します。</p>
 
 <h3 id="s7-tokens">準備：単語を、計算できるベクトルにする</h3>
-<p>モデルに入るのは文字列のままの単語ではありません。文章を<strong>トークン</strong>という単位に分け、IDを付け、<strong>埋め込み（Embedding）</strong>で数値の並びに変換します。6章のコードに出てきた<code>nn.Embedding</code>の役割です。</p>
+<p>モデルに入るのは文字列のままの単語ではありません。文章を<strong>トークン</strong>という単位に分け、IDを付け、<strong>埋め込み（Embedding：エンベディング）</strong>で数値の並びに変換します。6章のコードに出てきた<code>nn.Embedding</code>の役割です。</p>
 <div class="flow-down"><div class="flow-box">文章：「今日の会議は15時」</div><div class="arrow" aria-hidden="true">↓ トークン化</div><div class="flow-box">例：［今日］［の］［会議］［は］［15］［時］</div><div class="arrow" aria-hidden="true">↓ ID → 埋め込み</div><div class="flow-box blue">各トークン → ベクトル　例：［0.2, −0.5, …］</div></div>
 <p class="note">実際の分割はトークナイザー次第で、1トークン＝1単語とは限りません。本章の日本語の分割は説明用です。ベクトルの各成分にも、人間が読める決まった意味があるとは限りません。</p>
 
-<h3 id="s7-qkv">Query・Key・Value：探す手掛かりと、取り出す中身</h3>
+<h3 id="s7-qkv">Query（クエリ）・Key（キー）・Value（バリュー）：探す手掛かりと、取り出す中身</h3>
 <p>検索を思い浮かべてください。探したい内容を<strong>Query</strong>、照合する手掛かりを<strong>Key</strong>、取り込む情報を<strong>Value</strong>と呼びます。3つともベクトルです。</p>
 <div class="three-col"><div class="concept"><strong>Q：何を探す？</strong><p>情報を取り込む側が持つ、検索用の手掛かり。</p></div><div class="concept"><strong>K：何と照合する？</strong><p>各参照先が持つ、照合用の手掛かり。</p></div><div class="concept"><strong>V：何を取り込む？</strong><p>照合の結果に応じて混ぜる、各参照先の情報。</p></div></div>
-<p>QとKの内積からスコアを作り、2章で学んだ<strong>Softmax</strong>で合計1の配分に変換し、その配分でVを加重平均します。辞書のように1件を選ぶだけでなく、複数の参照先から少しずつ情報を取り込めます。</p>
+<p>QとKの内積（ないせき）からスコアを作り、2章で学んだ<strong>Softmax（ソフトマックス）</strong>で合計1の配分に変換し、その配分でVを加重平均（かじゅうへいきん）します。辞書のように1件を選ぶだけでなく、複数の参照先から少しずつ情報を取り込めます。</p>
 <div class="demo" id="d7-calculation" aria-label="Attentionのスコア、Softmax、Valueの加重和を数値で追う"><div class="demo-head"><span class="demo-kicker">計算を追う</span><h4 class="demo-title">3つのValueを、どんな配分で混ぜる？</h4></div><div class="demo-stage"><p>スコアをSoftmaxで重みに変え、Valueを足し合わせます。出力は、単語ではなくベクトルです。</p></div></div>
 <div class="callout tip"><b>ここがAttentionの出力</b>出てくるのは「会議室」という文字列ではなく、参照先の情報を取り込んだ<strong>新しいベクトル</strong>です。文章を出すには、さらに後段の処理が必要です。</div>
 <p><strong>注目度そのものを、固定パラメータとして覚えるわけではありません。</strong>学習するのはQ・K・Vを作る変換などのパラメータです。同じモデルでも、入力や位置が変われば注目度も変わります。</p>
-<details class="supplement" id="s7-formula"><summary>補足：数式では、3つの操作を1行で書ける</summary><div class="eq">Attention(Q, K, V) = softmax(QKᵀ / √d<sub>k</sub>)V</div><table><thead><tr><th>部分</th><th>図解との対応</th></tr></thead><tbody><tr><td>QKᵀ</td><td>参照する側と、各参照先のスコアをまとめて計算</td></tr><tr><td>÷ √d<sub>k</sub></td><td>内積のばらつきが次元数とともに大きくなる影響を調整</td></tr><tr><td>softmax</td><td>各Queryについて、参照先の重みの合計を1にする</td></tr><tr><td>× V</td><td>その配分でValueを混ぜる</td></tr></tbody></table><p>これが<strong>Scaled Dot-Product Attention</strong>です。初期のRNN向けAttentionには別のスコア計算法もありました。Attentionの共通の考え方が「スコア → 配分 → 加重和」で、ここではTransformerで使われた方式を扱います。</p></details>
+<details class="supplement" id="s7-formula"><summary>補足：数式では、3つの操作を1行で書ける</summary><div class="eq">Attention(Q, K, V) = softmax(QKᵀ / √d<sub>k</sub>)V</div><table><thead><tr><th>部分</th><th>図解との対応</th></tr></thead><tbody><tr><td>QKᵀ</td><td>参照する側と、各参照先のスコアをまとめて計算</td></tr><tr><td>÷ √d<sub>k</sub></td><td>内積のばらつきが次元数とともに大きくなる影響を調整</td></tr><tr><td>softmax</td><td>各Queryについて、参照先の重みの合計を1にする</td></tr><tr><td>× V</td><td>その配分でValueを混ぜる</td></tr></tbody></table><p>これが<strong>Scaled Dot-Product Attention（スケールド・ドットプロダクト・アテンション）</strong>です。初期のRNN向けAttentionには別のスコア計算法もありました。Attentionの共通の考え方が「スコア → 配分 → 加重和（かじゅうわ）」で、ここではTransformerで使われた方式を扱います。</p></details>
 <div class="checkpoint"><strong>確認①</strong>Attentionの出力は、単語そのものですか。それとも情報を取り込んだベクトルですか？</div>
 
 <h2 id="s7-2">7.2 Self-Attention — 文の中で情報を交換する</h2>
@@ -68,39 +71,41 @@
 <p>位置情報を持たないSelf-Attentionでは、語の内容は照合できても、<strong>どの位置にあるかを直接の手掛かりにできません。</strong>「犬 が 人 を 噛んだ」と「人 が 犬 を 噛んだ」では、同じ語でも役割が変わります。</p>
 <div class="demo" id="d7-position" aria-label="語順の入れ替えと位置情報の有無を比較"><div class="demo-head"><span class="demo-kicker">切り替える</span><h4 class="demo-title">「犬」は同じでも、「何番目の犬」かが違う</h4></div><div class="demo-stage"><p>語順と位置情報を切り替えると、位置を区別する手掛かりを確認できます。</p></div></div>
 <p>原型Transformerでは、各トークンの埋め込みに<strong>位置ごとのベクトルを加算</strong>します。「単語の情報＋位置の情報」をAttentionに渡すことで、並び順を使えるようにします。</p>
-<details class="supplement"><summary>補足：位置情報の方式と、正確な言い方</summary><p>位置情報もMaskもないSelf-Attentionは、入力の順番を入れ替えると出力も対応して入れ替わります。出力がまったく同じになる「不変」ではなく、<strong>置換同変</strong>です。入門では「内容だけでは、語順を識別する手掛かりが足りない」と押さえれば十分です。</p><table><thead><tr><th>方式</th><th>位置の伝え方</th></tr></thead><tbody><tr><td>Sinusoidal</td><td>原型Transformer。sin・cosによる固定ベクトルを加算</td></tr><tr><td>学習型</td><td>位置ベクトルも学習。BERTなど</td></tr><tr><td>RoPE</td><td>Q・Kを位置に応じて回転させ、相対的な位置関係をスコアに反映。単純な加算方式とは異なる</td></tr></tbody></table><p>固定の式で長い位置のベクトルを作れても、未学習の長さで性能が保証されるわけではありません。</p></details>
+<details class="supplement"><summary>補足：位置情報の方式と、正確な言い方</summary><p>位置情報もMask（マスク）もないSelf-Attentionは、入力の順番を入れ替えると出力も対応して入れ替わります。出力がまったく同じになる「不変」ではなく、<strong>置換同変（ちかんどうへん）</strong>です。入門では「内容だけでは、語順を識別する手掛かりが足りない」と押さえれば十分です。</p><table><thead><tr><th>方式</th><th>位置の伝え方</th></tr></thead><tbody><tr><td>Sinusoidal（サイナソイダル）</td><td>原型Transformer。sin・cosによる固定ベクトルを加算</td></tr><tr><td>学習型</td><td>位置ベクトルも学習。BERTなど</td></tr><tr><td>RoPE（ロープ）</td><td>Q・Kを位置に応じて回転させ、相対的な位置関係をスコアに反映。単純な加算方式とは異なる</td></tr></tbody></table><p>固定の式で長い位置のベクトルを作れても、未学習の長さで性能が保証されるわけではありません。</p></details>
 
-<h3 id="s7-heads">Multi-Head：別々の変換で、複数の配分を作る</h3>
+<h3 id="s7-heads">Multi-Head（マルチヘッド）：別々の変換で、複数の配分を作る</h3>
 <p>1組だけで情報を混ぜると、異なる関係を同時に表しにくくなります。そこで別々の変換でQ・K・Vを作るAttentionを並べ、結果を連結します。これが<strong>Multi-Head Attention</strong>です。5章で、複数のフィルタが異なる特徴を取り出したことを思い出してください。</p>
 <div class="demo" id="d7-heads" aria-label="1ヘッドと8ヘッドの次元の対応"><div class="demo-head"><span class="demo-kicker">次元を見る</span><h4 class="demo-title">512次元を、64次元×8ヘッドで扱う</h4></div><div class="demo-stage"><p>1ヘッドの出力を連結し、出力用の線形変換でモデルの次元にそろえます。</p></div></div>
 <p>この設定では、各ヘッドが<code>(10, 64)</code>を出し、8個の連結で<code>(10, 512)</code>になります。さらに出力変換<code>W_O</code>を適用します。<strong>「512次元の1ヘッド」と「64次元の8ヘッド」</strong>を比べると、主要な行列演算の計算量は概ね同程度です。</p>
-<details class="supplement" id="s7-shapes"><summary>補足：行列shapeを通して追う（演習2用）</summary><p>バッチ次元は省略します。<code>@</code>は2章でも使った行列積、<code>.T</code>は転置です。</p><pre><code>X              : (10, 512)   10トークンの入力
+<details class="supplement" id="s7-shapes"><summary>補足：行列shape（シェイプ）を通して追う</summary><p>バッチ次元は省略します。<code>@</code>は2章でも使った行列積、<code>.T</code>は転置です。</p><pre><code>X              : (10, 512)   10トークンの入力
 W_Q, W_K, W_V  : (512, 64)   1ヘッド分の変換
 Q, K, V        : (10, 64)
 Q @ K.T        : (10, 10)    全位置の組み合わせ
 weights        : (10, 10)    行ごとにSoftmax
 weights @ V    : (10, 64)    1ヘッドの出力
 8ヘッドを連結   : (10, 512)
-連結結果 @ W_O : (10, 512)   W_Oは(512, 512)</code></pre><p><strong>保たれるのはまずトークン数です。</strong>1ヘッドの特徴次元は64に変わり、連結と出力変換を経たMulti-Head全体では入力と同じ512次元に戻ります。幅をそろえることは、後の残差接続にも必要です。</p></details>
+連結結果 @ W_O : (10, 512)   W_Oは(512, 512)</code></pre><p><strong>保たれるのはまずトークン数です。</strong>1ヘッドの特徴次元は64に変わり、連結と出力変換を経たMulti-Head全体では入力と同じ512次元に戻ります。幅をそろえることは、後の残差接続（ざんさせつぞく）にも必要です。</p></details>
 <div class="checkpoint"><strong>確認②</strong>Self-Attentionは、文を1本のベクトルにまとめますか。それとも各位置に文脈を取り込んだベクトルを返しますか？</div>
 
 <h2 id="s7-3">7.3 Transformer — 入力から次の語までつなぐ</h2>
+<p><strong>Transformerは、Self-Attentionでトークン間の関係を捉え、全結合層で情報を加工する処理を重ねた、ニューラルネットワークの構造です。</strong>各トークンの表現に文脈を取り込み、その表現を出力の予測に使います。</p>
+<p>ここでは翻訳を例に、入力文を読み取る処理と、次の語を予測する処理を組み合わせた全体像を見ていきます。</p>
 <h3 id="s7-architecture">全体像：Attentionと全結合層を積み重ねる</h3>
-<p>2017年の<strong>Transformer</strong>は、系列を扱う中心の仕組みとしてRNNやCNNを使わず、Attentionと位置ごとの全結合層を採用しました。まずは、原型の<strong>翻訳用Encoder–Decoder</strong>を見ます。図は両側とも上から下へ流れます。</p>
+<p>2017年の<strong>Transformer</strong>は、系列を扱う中心の仕組みとしてRNNやCNN（シーエヌエヌ）を使わず、Attentionと位置ごとの全結合層を採用しました。まずは、原型の<strong>翻訳用Encoder–Decoder</strong>を見ます。</p>
 <div class="demo" id="d7-architecture" aria-label="入力から出力までをたどるEncoderとDecoderの構造"><div class="demo-head"><span class="demo-kicker">順にたどる</span><h4 class="demo-title">入力文と、生成途中の文は、別の入口から入る</h4></div><div class="demo-stage"><p>Encoderは入力文の表現を作り、Decoderは生成済みの語とEncoderの出力を使って次の語を予測します。</p></div></div>
 <p>3種類のAttentionは、<strong>情報を混ぜる計算は同じで、参照先と見える範囲が違います。</strong></p>
-<table><thead><tr><th>種類</th><th>Qの元</th><th>K・Vの元</th><th>役割</th></tr></thead><tbody><tr><td>EncoderのSelf-Attention</td><td>Encoderの各位置の表現</td><td>同じEncoder内の表現</td><td>入力文の各位置が入力文全体を参照</td></tr><tr><td>DecoderのMasked Self-Attention</td><td>Decoderの各位置の表現</td><td>同じDecoder内の表現</td><td>生成済みの文脈を参照。未来は参照しない</td></tr><tr><td>Cross-Attention</td><td>Decoder側の表現</td><td>Encoderの最終出力</td><td>入力文を参照して、訳語の予測に使う</td></tr></tbody></table>
-<p class="note">各層では、前のサブ層・層から受け取った表現を線形変換してQ・K・Vを作ります。常に最初の埋め込みだけを見るわけではありません。Paddingなどの無効な位置は、別のMaskで除外します。</p>
+<table><thead><tr><th>種類</th><th>Qの元</th><th>K・Vの元</th><th>役割</th></tr></thead><tbody><tr><td>EncoderのSelf-Attention</td><td>Encoderの各位置の表現</td><td>同じEncoder内の表現</td><td>入力文の各位置が入力文全体を参照</td></tr><tr><td>DecoderのMasked Self-Attention（マスクト・セルフアテンション）</td><td>Decoderの各位置の表現</td><td>同じDecoder内の表現</td><td>生成済みの文脈を参照。未来は参照しない</td></tr><tr><td>Cross-Attention（クロスアテンション）</td><td>Decoder側の表現</td><td>Encoderの最終出力</td><td>入力文を参照して、訳語の予測に使う</td></tr></tbody></table>
+<p class="note">各層では、前のサブ層・層から受け取った表現を線形変換してQ・K・Vを作ります。常に最初の埋め込みだけを見るわけではありません。Padding（パディング）などの無効な位置は、別のMaskで除外します。</p>
 
-<h3 id="s7-ffn">FFN・残差接続・LayerNormの役割</h3>
+<h3 id="s7-ffn">FFN（エフエフエヌ）・残差接続・LayerNorm（レイヤーノルム）の役割</h3>
 <div class="two-col"><div class="concept"><strong>Attention：位置の間で混ぜる</strong><p>他の位置から情報を取り込み、各位置のベクトルを更新します。</p></div><div class="concept"><strong>FFN：各位置の中で加工する</strong><p>同じ全結合ネットワークを各位置に適用します。この段階では他の位置のベクトルと混ぜません。</p></div></div>
-<p><strong>Feed Forward Network（FFN）</strong>は、例えば「512次元 → 2048次元 → 512次元」の2層の全結合層です。間にReLUなどの非線形関数を入れます。5章のResNetと同じ<strong>残差接続</strong>で元の入力も足し、<strong>LayerNorm</strong>で各トークンの特徴のスケールを整えます。</p>
+<p><strong>Feed Forward Network（フィードフォワード・ネットワーク）（FFN）</strong>は、例えば「512次元 → 2048次元 → 512次元」の2層の全結合層です。間にReLU（レルー）などの非線形関数を入れます。5章のResNet（レズネット）と同じ<strong>残差接続</strong>で元の入力も足し、<strong>LayerNorm</strong>で各トークンの特徴のスケールを整えます。</p>
 <details class="supplement"><summary>補足：原型Transformerの式と、現在の実装での違い</summary><pre><code class="python"># 各位置に同じFFNを適用する（概念コード）
 h = relu(x @ W1 + b1)       # (n, 512) → (n, 2048)
 y = h @ W2 + b2            # (n, 2048) → (n, 512)
 
 # 原型Transformerの残差と正規化（Dropoutは省略）
-out = LayerNorm(x + SubLayer(x))</code></pre><p>これは原型の<strong>Post-LN</strong>配置です。正規化を前に置くPre-LNや、RMSNormを使うモデルもあります。LayerNormは特徴次元方向で正規化してから、学習可能なスケール・バイアスを適用します。最終出力が常に平均0・分散1という意味ではありません。</p></details>
+out = LayerNorm(x + SubLayer(x))</code></pre><p>これは原型の<strong>Post-LN（ポスト・エルエヌ）</strong>配置です。正規化を前に置くPre-LN（プリ・エルエヌ）や、RMSNorm（アールエムエスノルム）を使うモデルもあります。LayerNormは特徴次元方向で正規化してから、学習可能なスケール・バイアスを適用します。最終出力が常に平均0・分散1という意味ではありません。</p></details>
 
 <h3 id="s7-mask">Mask：見てよい範囲を決める</h3>
 <p>翻訳文や文章の生成では、次の語は、まだ生成していない未来の語に頼れません。学習中にも同じ条件を守るため、DecoderのSelf-Attentionで<strong>後ろの位置への参照を禁止</strong>します。</p>
@@ -109,17 +114,17 @@ out = LayerNorm(x + SubLayer(x))</code></pre><p>これは原型の<strong>Post-L
 <p>Encoderは、翻訳元の入力文全体が既にあるので、通常はこの<strong>未来を隠す因果Mask</strong>が不要です。これは「EncoderにはどんなMaskも不要」という意味ではありません。</p>
 
 <h3 id="s7-parallel">学習はまとめて計算、生成は1語ずつ</h3>
-<p>6章のSeq2Seqで出てきた<strong>teacher forcing</strong>を思い出してください。学習時には、生成済みの語の代わりに正解文の直前までを入力できます。正解の各位置がそろっているため、Maskを守りながら<strong>全位置の予測をまとめて計算</strong>できます。</p>
+<p>6章のSeq2Seqで出てきた<strong>teacher forcing（ティーチャー・フォーシング）</strong>を思い出してください。学習時には、生成済みの語の代わりに正解文の直前までを入力できます。正解の各位置がそろっているため、Maskを守りながら<strong>全位置の予測をまとめて計算</strong>できます。</p>
 <div class="demo" id="d7-training" aria-label="学習時の同時予測と生成時の逐次予測を比較"><div class="demo-head"><span class="demo-kicker">モードを切り替える</span><h4 class="demo-title">同じ「次の語の予測」でも、入力がそろう時点が違う</h4></div><div class="demo-stage"><p>学習時は正解文があるので複数位置をまとめて予測でき、生成時は出した語を次の入力に追加します。</p></div></div>
-<p>一方、通常の<strong>自己回帰生成</strong>では、次の語が決まってから、その語を含めて次を予測します。Transformerだから文章全体を一度に生成できる、ということではありません。</p>
+<p>一方、通常の<strong>自己回帰（じこかいき）生成</strong>では、次の語が決まってから、その語を含めて次を予測します。Transformerだから文章全体を一度に生成できる、ということではありません。</p>
 <table><thead><tr><th>比較点</th><th>RNN / LSTM</th><th>Transformer</th></tr></thead><tbody><tr><td>学習時の系列内の計算</td><td>前の隠れ状態を待つ</td><td>各層で位置をまとめて計算できる</td></tr><tr><td>離れた位置への経路</td><td>間の位置を経由</td><td>Self-Attentionで直接参照できる</td></tr><tr><td>通常の自己回帰生成</td><td>次の語を順に決定</td><td>次の語を順に決定</td></tr><tr><td>長い入力の負担</td><td>系列長に応じて逐次段数が増える</td><td>全位置どうしのAttentionでは組み合わせが二乗で増える</td></tr></tbody></table>
-<p>Transformerの利点は、<strong>学習時にGPUの得意な大きな行列演算へまとめやすいこと</strong>です。実際の速度は系列長、モデル幅、実装、ハードウェアに依存します。</p>
-<details class="supplement" id="s7-cost"><summary>補足：長い文のコストとKVキャッシュ</summary><p>長さnの通常の全結合Self-Attentionには、n×nの参照の組み合わせがあります。ほかの次元を固定すると、その部分の演算量は<strong>O(n²)</strong>です。長さを2倍にすると組み合わせは4倍ですが、FFNなども含むモデル全体の時間・メモリが必ず4倍になるわけではありません。</p><p>スコア行列を丸ごと保存する素朴な実装では、その保存量も二乗です。FlashAttentionのように行列を丸ごと保存しない実装もあります。また、生成時には<strong>KVキャッシュ</strong>で過去のK・Vを再利用し、過去の計算をすべてやり直すことを避けます。それでも次の語の決定は通常、順番に進みます。</p></details>
+<p>Transformerの利点は、<strong>学習時にGPU（ジーピーユー）の得意な大きな行列演算へまとめやすいこと</strong>です。実際の速度は系列長、モデル幅、実装、ハードウェアに依存します。</p>
+<details class="supplement" id="s7-cost"><summary>補足：長い文のコストとKVキャッシュ（ケーブイキャッシュ）</summary><p>長さnの通常の全結合Self-Attentionには、n×nの参照の組み合わせがあります。ほかの次元を固定すると、その部分の演算量は<strong>O(n²)</strong>です。長さを2倍にすると組み合わせは4倍ですが、FFNなども含むモデル全体の時間・メモリが必ず4倍になるわけではありません。</p><p>スコア行列を丸ごと保存する素朴な実装では、その保存量も二乗です。FlashAttention（フラッシュアテンション）のように行列を丸ごと保存しない実装もあります。また、生成時には<strong>KVキャッシュ</strong>で過去のK・Vを再利用し、過去の計算をすべてやり直すことを避けます。それでも次の語の決定は通常、順番に進みます。</p></details>
 <div class="checkpoint"><strong>確認③</strong>学習時には複数位置をまとめて予測できるのに、通常の文章生成では順番に語を決めるのはなぜでしょう？</div>
 
 <h2 id="s7-4">7.4 BERTとGPT — 見える範囲と構成の違い</h2>
 <p>原型Transformerの考え方は、目的に合わせた構成へ発展しました。代表例が、文全体を参照するEncoder系の<strong>BERT</strong>と、前から続きを予測するDecoder系の<strong>GPT</strong>です。</p>
-<div class="demo" id="d7-families" aria-label="原型、Encoder-only、Decoder-onlyの構成を比較"><div class="demo-head"><span class="demo-kicker">構成を比較</span><h4 class="demo-title">GPTのDecoderには、翻訳元を見るCross-Attentionがない</h4></div><div class="demo-stage"><p>BERTはEncoder系、GPTはCross-Attentionを持たないDecoder-only系の代表例です。</p></div></div>
+<div class="demo" id="d7-families" aria-label="原型、Encoder-only、Decoder-onlyの構成を比較"><div class="demo-head"><span class="demo-kicker">構成を比較</span><h4 class="demo-title">GPTのDecoderには、翻訳元を見るCross-Attentionがない</h4></div><div class="demo-stage"><p>BERTはEncoder系、GPTはCross-Attentionを持たないDecoder-only（デコーダー・オンリー）系の代表例です。</p></div></div>
 <table><thead><tr><th>観点</th><th>BERT系の代表的な構成</th><th>GPT系の代表的な構成</th></tr></thead><tbody><tr><td>参照範囲</td><td>入力の前後を参照</td><td>各位置から、その位置までを参照</td></tr><tr><td>事前学習の例</td><td>隠したトークンを当てる</td><td>次のトークンを当てる</td></tr><tr><td>用途の例</td><td>分類、固有表現抽出、検索向け表現</td><td>文章生成、対話、指示による分類・抽出</td></tr><tr><td>利用時の選択</td><td>目的に合う学習済みモデルを使う、追加学習するなど</td><td>指示調整されたモデルへのプロンプト、追加学習など</td></tr></tbody></table>
 <p>「BERTなら必ず追加学習」「GPTなら無調整で必ず解ける」という区分ではありません。用途・精度・データ・コスト・運用条件で判断します。検索用のベクトル表現には、その目的で学習したモデルを選ぶことも大切です。</p>
 
@@ -127,21 +132,30 @@ out = LayerNorm(x + SubLayer(x))</code></pre><p>これは原型の<strong>Post-L
 <h3 id="s7-scaling">大きく学習できることの意味</h3>
 <p>モデル規模・学習データ量・計算量と損失の間には、一定の設定や範囲で予測可能な関係が観測されています。これが<strong>スケーリング則</strong>です。パラメータ数だけを増やせばよいという法則でも、個別タスクの能力をすべて予測できる保証でもありません。</p>
 <p>ある規模で能力が突然現れたように見える「創発」の報告もありますが、評価指標の選び方で急激に見える場合があるという研究もあります。損失の滑らかな改善と、個別能力の現れ方は分けて考えます。非公開モデルの推定パラメータ数は、規模の説明の根拠には使いません。</p>
-<h3 id="s7-vit">画像をパッチの列として扱うViT</h3>
+<h3 id="s7-vit">画像をパッチの列として扱うViT（ヴィット）</h3>
 <div class="two-col"><div class="concept"><strong>画像を小片に分ける</strong><div class="patch-grid" aria-label="画像を16個のパッチに分ける概念図"><span class="patch">1</span><span class="patch">2</span><span class="patch">3</span><span class="patch">4</span><span class="patch">5</span><span class="patch">6</span><span class="patch">7</span><span class="patch">8</span><span class="patch">9</span><span class="patch">10</span><span class="patch">11</span><span class="patch">12</span><span class="patch">13</span><span class="patch">14</span><span class="patch">15</span><span class="patch">16</span></div><p class="note">上図は4×4分割の概念図です。</p></div><div class="concept"><strong>各パッチをベクトルにする</strong><p>224×224画素の画像を16×16画素のパッチにすると、14×14＝196個。</p><p>各パッチを線形変換し、位置情報とともにTransformerへ渡します。原型の分類用ViTでは、分類用トークンも追加します。</p></div></div>
 <p>CNNは局所性などの事前知識を構造に持ち、ViTはパッチ間の関係をAttentionで学びます。データ効率は学習方法・事前学習・データ拡張などでも変わるため、「少量データなら必ずCNN」とは言い切れません。音声でも、スペクトログラムなどから系列表現を作ってTransformerを使えます。</p>
 </details>
 
-<h2 id="s7-summary">まとめ — 今日持ち帰る3つ</h2>
-<ul class="summary-list"><li><strong>Attentionは、参照先の重みを入力に応じて計算し、Valueを混ぜてベクトルを返す。</strong></li><li><strong>Self-Attentionは各位置に文脈を取り込む。位置情報が語順の手掛かりを与える。</strong></li><li><strong>Transformerは学習時に各位置をまとめて計算できる。通常の文章生成は、次の語を順に決める。</strong></li></ul>
-<p>次章では、Decoder系Transformerを土台にしたLLMの学習、生成時の選び方、RAGなどのアプリケーションへの組み込みを扱います。</p>
+<h2 id="s7-summary">まとめ — Attentionから文章生成まで</h2>
+<p>6章のSeq2Seqでは、入力文の情報を最後の固定長の状態にまとめていました。本章では、必要な情報をその都度参照する仕組みへ進みました。ここまでの流れを振り返ります。</p>
+<h3 id="s7-summary-attention">1. Attentionは、必要な情報を重み付きで取り込む</h3>
+<p><strong>Qは探す手掛かり、Kは照合する手掛かり、Vは取り込む情報</strong>です。Qと各Kからスコアを作り、Softmaxで合計1の重みに変え、その重みでVを混ぜます。</p>
+<p>「会議」を訳す場面と「15時」を訳す場面では、必要な情報が違います。入力や出力位置に応じて参照先の配分を変え、<strong>後段の予測に使うベクトル</strong>を作るのがAttentionです。</p>
+<h3 id="s7-summary-self">2. Self-Attentionは、各位置の表現に文脈を取り込む</h3>
+<p>Self-Attentionでは、同じ文からQ・K・Vを作り、各位置が同じ文の他の位置を参照します。「渡らなかった」の表現に「動物は」や「疲れて」の情報を取り込む、という例でした。<strong>各位置に、文脈を取り込んだベクトルを返します。</strong></p>
+<p>入力に位置情報を加えることで語順も伝えます。Multi-Headでは、別々の変換でAttentionを並べ、その出力を連結して組み合わせます。</p>
+<h3 id="s7-summary-transformer">3. Transformerは、その表現から次の語を予測する</h3>
+<p>Transformerでは、<strong>Attentionで位置の間の情報を混ぜ、FFNで各位置の情報を加工</strong>します。残差接続と正規化を組み合わせて層を重ね、最後に語彙（ごい）数ぶんのスコアへ変換して、次の語の確率を出します。</p>
+<p>学習時は正解文から入力を用意し、因果Maskで未来を隠したまま、各位置をまとめて計算できます。一方、通常の自己回帰生成では、<strong>出した語を次の入力に加え、1語ずつ予測を繰り返します。</strong></p>
+<div class="flow-down" aria-label="文章生成までの流れ"><div class="flow-box blue">トークン → 埋め込み ＋ 位置情報</div><div class="arrow" aria-hidden="true">↓</div><div class="flow-box">Attentionで文脈を取り込む → FFNで加工する<br><small>残差接続・正規化を伴う層を重ねる</small></div><div class="arrow" aria-hidden="true">↓</div><div class="flow-box violet">語彙のスコア → Softmax → 次のトークンを選ぶ</div><div class="arrow" aria-hidden="true">↓</div><div class="flow-box green">選んだトークンを入力へ加え、次の予測へ</div></div>
 
-<h2 id="s7-exercises">演習・ディスカッション</h2>
-<div class="exercise"><p><strong>1. Attentionは何を返す？</strong><br>重みが［0.2, 0.3, 0.5］、Valueが順に［1, 0］、［0, 1］、［1, 1］のとき、出力を計算してください。その出力は単語ですか？</p><details><summary>解答例を見る</summary><p>0.2［1, 0］＋0.3［0, 1］＋0.5［1, 1］＝<strong>［0.7, 0.8］</strong>。情報を混ぜたベクトルです。単語を選ぶには後段の処理が必要です。</p></details></div>
-<div class="exercise"><p><strong>2. shapeを確認する（任意）</strong><br>20トークン、モデル幅768、12ヘッドで、Q・K・Vの各ヘッドの次元を64とします。1ヘッドのQ・K・V、重み行列、Multi-Headの最終出力のshapeは？ バッチ次元は省略します。</p><details><summary>解答例を見る</summary><p>Q・K・V：<strong>(20, 64)</strong>。重み行列：<strong>(20, 20)</strong>。各ヘッドの出力(20, 64)を12個連結し、出力変換した最終出力：<strong>(20, 768)</strong>。</p></details></div>
-<div class="exercise"><p><strong>3. Maskと並列化を説明する</strong><br>入力が［開始, I, like］、正解が［I, like, cats］のとき、入力Iの位置はどこを参照できますか？ なぜ学習では3位置をまとめて予測でき、生成では通常できないのでしょう？</p><details><summary>解答例を見る</summary><p>入力Iの位置は［開始, I］を参照でき、後ろのlikeは参照できません。学習時は正解文が既にあり、ずらした入力を用意して因果Maskの下で全位置を計算できます。生成時は次の語がまだ決まっておらず、出力した語を入力へ追加して次の予測に進みます。</p></details></div>
-<div class="exercise"><p><strong>4. 分類モデルを選ぶ</strong><br>問い合わせメールを「請求・技術・その他」に分類します。どんな情報を確認して、Encoder系の分類モデルや指示調整済みLLMを選びますか？</p><details><summary>解答例を見る</summary><p>正解ラベル付きデータの量、必要精度、メールの長さ、処理件数、遅延、機密性、費用を確認します。例えば大量・低遅延の定型分類なら、小さなEncoder系モデルの追加学習を検討できます。ラベルが少なくカテゴリを試行中なら、指示調整済みLLMでまず評価する選択もあります。いずれも実データの検証用集合で比較します。</p></details></div>
-
+<h2 id="s7-next">次回：次の語の予測から、LLMの使い方へ</h2>
+<p>次章では、このDecoder系Transformerを土台にした<strong>LLMと生成AI</strong>を扱います。例えば、「今日の天気は」に続く候補として、モデルが次の確率を出したとします。</p>
+<div class="eq">「今日 の 天気 は」 → 晴れ 0.42 ／ 雨 0.21 ／ 曇り 0.18 ／ …</div>
+<p>この先には、まだ考えることがあります。</p>
+<ul><li><strong>次の語をどう選ぶ？</strong> — 毎回いちばん確率が高い語を選ぶのか。temperature（テンパラチャー）で何が変わるのか。</li><li><strong>どう学習すると指示に答えられる？</strong> — 事前学習と、指示に応じた応答へ調整する学習。</li><li><strong>社内資料を使って答えるには？</strong> — 検索した資料を入力に加えるRAG（ラグ）の仕組み。</li></ul>
+<p>今回学んだ「入力から次の語の確率を出す仕組み」を使って、応答の作り方と実務への組み込みを見ていきます。</p>
 <h2 id="s7-sources">参考資料</h2>
 <p class="note">本編は原型Transformerを軸に説明しています。図解の重み・埋め込み・予測確率はすべて説明用で、学習済みモデルの内部を再現したものではありません。</p>
 <ul class="source-list"><li><a href="https://arxiv.org/abs/1409.0473">Bahdanau et al. — Neural Machine Translation by Jointly Learning to Align and Translate</a>：翻訳におけるAttention。</li><li><a href="https://arxiv.org/html/1706.03762v7">Vaswani et al. — Attention Is All You Need</a>：Q・K・V、Multi-Head、位置表現、原型の構造とMask。</li><li><a href="https://arxiv.org/abs/1810.04805">Devlin et al. — BERT</a> ／ <a href="https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf">Radford et al. — Improving Language Understanding by Generative Pre-Training</a>：Encoder系とDecoder系。</li><li><a href="https://arxiv.org/abs/1810.00825">Lee et al. — Set Transformer</a>：Self-Attentionの置換同変性。</li><li><a href="https://arxiv.org/abs/2205.14135">Dao et al. — FlashAttention</a>：Attentionのメモリ使用の工夫。</li><li><a href="https://arxiv.org/abs/2001.08361">Kaplan et al. — Scaling Laws for Neural Language Models</a> ／ <a href="https://arxiv.org/abs/2203.15556">Hoffmann et al. — Training Compute-Optimal Large Language Models</a>：規模、データ、計算量。</li><li><a href="https://arxiv.org/abs/2304.15004">Schaeffer et al. — Are Emergent Abilities of Large Language Models a Mirage?</a>：創発と評価指標。</li><li><a href="https://arxiv.org/abs/2010.11929">Dosovitskiy et al. — An Image is Worth 16x16 Words</a> ／ <a href="https://arxiv.org/abs/2012.12877">Touvron et al. — DeiT</a>：ViTとデータ効率。</li></ul>

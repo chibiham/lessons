@@ -180,18 +180,20 @@
     const d = demo('d7-architecture');
     const encIn = box('① 入力文（翻訳元）', 'blue');
     const encEmbed = box('埋め込み ＋ 位置情報');
-    const encSelf = box('② Self-Attention ＋ 残差・LN', 'blue');
-    const encFFN = box('FFN ＋ 残差・LN', 'green');
+    const encSelf = box('② Self-Attention ＋ 残差・LN（エルエヌ）', 'blue');
+    const encFFN = box('FFN（エフエフエヌ） ＋ 残差・LN', 'green');
     const encStack = h('div', { class: 'concept' }, label('このブロックをN層積む'), flow([encSelf, encFFN]));
     const encOut = box('③ Encoderの最終出力：各位置のベクトル', 'blue');
     const decIn = box('④ 生成済みの語／学習時はずらした正解文', 'violet');
     const decEmbed = box('埋め込み ＋ 位置情報');
     const decSelf = box('⑤ Masked Self-Attention ＋ 残差・LN', 'violet');
+    decSelf.append(h('small', { text: 'マスクト・セルフアテンション' }));
     const cross = box('⑥ Cross-Attention ＋ 残差・LN', 'blue');
+    cross.append(h('small', { text: 'クロスアテンション' }));
     cross.append(h('small', { text: 'Q：Decoder側 ／ K・V：Encoder最終出力を変換' }));
     const decFFN = box('FFN ＋ 残差・LN', 'green');
     const decStack = h('div', { class: 'concept' }, label('このブロックをN層積む'), flow([decSelf, cross, decFFN]));
-    const projection = box('⑦ 語彙への線形変換 ＋ Softmax', 'violet');
+    const projection = box('⑦ 語彙（ごい）への線形変換 ＋ Softmax', 'violet');
     projection.append(h('small', { text: '各出力位置のベクトル → 次の語の候補の確率' }));
     const enc = h('section', { class: 'arch-column', 'aria-label': 'Encoder 上から下に処理' }, h('h4', { text: 'Encoder ↓' }), flow([encIn, encEmbed, encStack, encOut]));
     const dec = h('section', { class: 'arch-column', 'aria-label': 'Decoder 上から下に処理' }, h('h4', { text: 'Decoder ↓' }), flow([decIn, decEmbed, decStack, projection]));
@@ -201,7 +203,7 @@
     player(d, targets.length, i => {
       targets.forEach((t, j) => t.classList.toggle('active', i === j));
       return [
-        'まず翻訳元の入力文をトークン化し、埋め込みと位置情報を作ります。<b>左も右も上から下</b>に処理が進みます。',
+        'まず翻訳元の入力文をトークン化し、埋め込みと位置情報を作ります。',
         'Encoderは入力文の各位置で情報を交換し、FFNで各位置の情報を加工します。図のブロック全体をN層積みます。',
         '最後まで処理した<b>各位置のベクトルを残します</b>。この最終出力が、各Decoder層のCross-Attentionへ渡されます。',
         'Decoderには別の入力があります。生成時は既に作った語、学習時は1位置ずらした正解文です。<b>翻訳元の入力文そのものとは別です。</b>',
@@ -315,13 +317,6 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     reference(); calculation(); selfAttention(); position(); heads(); architecture(); mask(); training(); families();
-    const button = document.getElementById('presentation-toggle');
-    button.addEventListener('click', () => {
-      const presenting = document.body.classList.toggle('present');
-      button.setAttribute('aria-pressed', String(presenting));
-      button.textContent = presenting ? '通常表示に戻す' : '発表表示に切り替え';
-      window.dispatchEvent(new Event('resize'));
-    });
     // 閉じた補足内の見出しへ移動する場合も、目次から内容を読めるようにする。
     function revealTarget(hash = location.hash) {
       let id;
