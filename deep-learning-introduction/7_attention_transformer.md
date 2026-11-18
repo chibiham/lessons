@@ -1,4 +1,6 @@
-# 第7章：Attention と Transformer - 現代 AI の基盤
+> **改訂版は [第7章：Attention と Transformer（動く図解HTML）](7_attention_transformer.html) です。** 発表・学習にはHTML版を使用してください。[発表原稿](script/7_attention_transformer.md)も用意しています。以下はHTML化前の旧稿で、用語・図・説明は改訂版で見直しています。
+
+# 第7章：Attention と Transformer - 現代 AI の基盤（旧稿）
 
 前章では RNN / LSTM で系列データを扱いました。しかし RNN には「逐次処理しかできない」「長い文脈が薄れる」という構造的な壁がありました。本章で扱う **Attention** と **Transformer** は、その壁を正面から取り払ったアーキテクチャです。今日の LLM も画像生成モデルも、ほぼすべてこの延長線上にあります。
 

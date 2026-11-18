@@ -14,7 +14,7 @@
     ['4_evaluation_and_tuning.md', '学習の評価とチューニング'],
     ['5_cnn.html', 'CNN — 画像を扱う'],
     ['6_rnn_lstm_gru.html', 'RNN・LSTM・GRU'],
-    ['7_attention_transformer.md', 'Attention と Transformer'],
+    ['7_attention_transformer.html', 'Attention と Transformer'],
     ['8_llm_and_generative_ai.md', 'LLM と生成 AI'],
     ['9_hands_on_and_review.md', 'ハンズオンと総復習']
   ];
